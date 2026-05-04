@@ -37,7 +37,7 @@ export default function App() {
           className={`nav-btn ${activeTab === 'nueva' ? 'active' : ''}`}
           onClick={() => setActiveTab('nueva')}
         >
-          <Stethoscope size={17} />
+<Activity size={17} />          
           Nueva Atención
         </button>
 
