@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import {
-  User, Phone, Calendar, Briefcase, Heart, AlertTriangle, Scissors,
-  Users, Baby, FileText, Activity, Thermometer, Wind, Brain,
-  Scale, Ruler, Clipboard, Plus, Trash2, Save, CheckCircle,
-  ChevronDown, Search, X, Clock
+  User, Calendar, Heart, AlertTriangle,
+  Users, Baby, FileText, Activity,
+  Clipboard, Plus, Trash2, Save, CheckCircle,
+  Search, X, Clock
 } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 
-/* ── Subset of CIE-10 codes (ampliable) ── */
+/* ── Subset of CIE-10 codes ── */
 const CIE10_LIST = [
   { code: 'Z00.0', name: 'Examen médico general' },
   { code: 'Z00.1', name: 'Examen de salud de rutina del niño' },
@@ -107,7 +107,6 @@ export default function NuevaAtencion({ onSaved }) {
   const [saving, setSaving] = useState(false)
   const [alert, setAlert] = useState(null)
 
-  /* ── Form sections ── */
   const [fecha, setFecha] = useState(today)
 
   const [generales, setGenerales] = useState({
@@ -128,14 +127,11 @@ export default function NuevaAtencion({ onSaved }) {
   })
 
   const [evolucion, setEvolucion] = useState('')
-
   const [diagnosticos, setDiagnosticos] = useState([emptyDiag()])
   const [tratamientos, setTratamientos] = useState([emptyTrat()])
-
   const [seguimiento, setSeguimiento] = useState(false)
   const [proximaConsulta, setProximaConsulta] = useState('')
 
-  /* ── BMI auto-calc ── */
   const imc = (() => {
     const p = parseFloat(vitales.peso)
     const t = parseFloat(vitales.talla)
@@ -152,7 +148,6 @@ export default function NuevaAtencion({ onSaved }) {
     return 'Obesidad'
   })()
 
-  /* ── Handlers ── */
   const setGen = (k, v) => setGenerales(p => ({ ...p, [k]: v }))
   const setAnt = (k, v) => setAntecedentes(p => ({ ...p, [k]: v }))
   const setVit = (k, v) => setVitales(p => ({ ...p, [k]: v }))
@@ -165,7 +160,6 @@ export default function NuevaAtencion({ onSaved }) {
   const removeTrat = (id) => setTratamientos(t => t.filter(x => x.id !== id))
   const setTratField = (id, k, v) => setTratamientos(t => t.map(x => x.id === id ? { ...x, [k]: v } : x))
 
-  /* ── Save ── */
   const handleSave = async () => {
     if (!generales.nombres || !generales.apellidos) {
       setAlert({ type: 'error', msg: 'Por favor ingrese nombres y apellidos del paciente.' })
@@ -177,7 +171,6 @@ export default function NuevaAtencion({ onSaved }) {
     setAlert(null)
 
     try {
-      /* 1. Upsert paciente by cedula or insert new */
       let pacienteId = null
 
       if (generales.cedula) {
@@ -219,7 +212,6 @@ export default function NuevaAtencion({ onSaved }) {
         pacienteId = newPac.id
       }
 
-      /* 2. Save antecedentes */
       const { data: antExist } = await supabase
         .from('antecedentes')
         .select('id')
@@ -245,7 +237,6 @@ export default function NuevaAtencion({ onSaved }) {
         await supabase.from('antecedentes').insert(antData)
       }
 
-      /* 3. Save atencion */
       const { data: atencion, error: atErr } = await supabase
         .from('atenciones')
         .insert({
@@ -270,7 +261,6 @@ export default function NuevaAtencion({ onSaved }) {
 
       if (atErr) throw atErr
 
-      /* 4. Save diagnosticos */
       const diagsToSave = diagnosticos.filter(d => d.codigo || d.nombre)
       if (diagsToSave.length) {
         await supabase.from('diagnosticos').insert(
@@ -283,7 +273,6 @@ export default function NuevaAtencion({ onSaved }) {
         )
       }
 
-      /* 5. Save tratamientos */
       const tratsToSave = tratamientos.filter(t => t.medicamento)
       if (tratsToSave.length) {
         await supabase.from('tratamientos').insert(
@@ -308,7 +297,6 @@ export default function NuevaAtencion({ onSaved }) {
     }
   }
 
-  /* ── Section card helper ── */
   const Section = ({ icon: Icon, title, subtitle, color = 'var(--primary)', children }) => (
     <div className="card">
       <div className="card-header">
@@ -328,7 +316,7 @@ export default function NuevaAtencion({ onSaved }) {
     <div>
       <div className="page-header">
         <div className="page-title">
-          <Stethoscope size={22} />
+          <Activity size={22} />
           Nueva Atención Médica
           <span className="page-title-badge">Ocupacional</span>
         </div>
@@ -345,7 +333,6 @@ export default function NuevaAtencion({ onSaved }) {
 
       <div className="section-stack">
 
-        {/* ── Fecha ── */}
         <Section icon={Calendar} title="Fecha de Atención" subtitle="Registro de la consulta médica">
           <div className="form-grid form-grid-4">
             <div className="form-group">
@@ -355,7 +342,6 @@ export default function NuevaAtencion({ onSaved }) {
           </div>
         </Section>
 
-        {/* ── Datos Generales ── */}
         <Section icon={User} title="Datos Generales del Paciente" subtitle="Información personal y de contacto">
           <div className="form-grid form-grid-3">
             <div className="form-group">
@@ -401,9 +387,7 @@ export default function NuevaAtencion({ onSaved }) {
           </div>
         </Section>
 
-        {/* ── Antecedentes Personales ── */}
-        <Section icon={Heart} title="Antecedentes Personales"
-          subtitle="Historial médico personal" color="#D69E2E">
+        <Section icon={Heart} title="Antecedentes Personales" subtitle="Historial médico personal" color="#D69E2E">
           <div className="form-grid form-grid-3">
             <div className="form-group">
               <label className="form-label">Antecedentes Patológicos Personales</label>
@@ -426,9 +410,7 @@ export default function NuevaAtencion({ onSaved }) {
           </div>
         </Section>
 
-        {/* ── Antecedentes Familiares ── */}
-        <Section icon={Users} title="Antecedentes Patológicos Familiares"
-          subtitle="Historial de enfermedades en familia directa" color="#744210">
+        <Section icon={Users} title="Antecedentes Patológicos Familiares" subtitle="Historial de enfermedades en familia directa" color="#744210">
           <div className="form-group">
             <label className="form-label">Antecedentes Patológicos Familiares</label>
             <textarea className="form-textarea" value={antecedentes.familiares}
@@ -437,10 +419,8 @@ export default function NuevaAtencion({ onSaved }) {
           </div>
         </Section>
 
-        {/* ── Ginecobstétricos ── */}
         {(generales.sexo === 'Femenino' || generales.sexo === '') && (
-          <Section icon={Baby} title="Antecedentes Ginecobstétricos"
-            subtitle="Solo aplica para pacientes femeninas" color="#97266D">
+          <Section icon={Baby} title="Antecedentes Ginecobstétricos" subtitle="Solo aplica para pacientes femeninas" color="#97266D">
             <div className="form-grid form-grid-5">
               <div className="form-group">
                 <label className="form-label">Gestas</label>
@@ -480,7 +460,6 @@ export default function NuevaAtencion({ onSaved }) {
           </Section>
         )}
 
-        {/* ── Motivo de Consulta ── */}
         <Section icon={FileText} title="Motivo de Consulta" color="#2B6CB0">
           <div className="form-group">
             <label className="form-label required">Motivo de consulta</label>
@@ -491,7 +470,6 @@ export default function NuevaAtencion({ onSaved }) {
           </div>
         </Section>
 
-        {/* ── Signos Vitales ── */}
         <Section icon={Activity} title="Signos Vitales" subtitle="Parámetros fisiológicos del paciente" color="#2F855A">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px,1fr))', gap: 12 }}>
             {[
@@ -513,8 +491,6 @@ export default function NuevaAtencion({ onSaved }) {
                 <div className="vital-card-unit">{unit}</div>
               </div>
             ))}
-
-            {/* IMC auto-calculated */}
             <div className="vital-card" style={{ background: 'var(--accent-soft)', borderColor: 'rgba(0,201,167,0.3)' }}>
               <div className="vital-card-label">IMC</div>
               <input value={imc || '—'} readOnly style={{ color: 'var(--accent)', cursor: 'default' }} />
@@ -536,9 +512,7 @@ export default function NuevaAtencion({ onSaved }) {
           </div>
         </Section>
 
-        {/* ── Evolución ── */}
-        <Section icon={Clipboard} title="Evolución del Paciente"
-          subtitle="Descripción clínica y seguimiento" color="#553C9A">
+        <Section icon={Clipboard} title="Evolución del Paciente" subtitle="Descripción clínica y seguimiento" color="#553C9A">
           <div className="form-group">
             <label className="form-label">Evolución</label>
             <textarea className="form-textarea" value={evolucion}
@@ -548,11 +522,9 @@ export default function NuevaAtencion({ onSaved }) {
           </div>
         </Section>
 
-        {/* ── Diagnóstico CIE-10 ── */}
-        <Section icon={Search} title="Diagnóstico CIE-10"
-          subtitle="Clasificación Internacional de Enfermedades" color="#2B6CB0">
+        <Section icon={Search} title="Diagnóstico CIE-10" subtitle="Clasificación Internacional de Enfermedades" color="#2B6CB0">
           <div className="section-stack">
-            {diagnosticos.map((diag, i) => (
+            {diagnosticos.map((diag) => (
               <div key={diag.id} className="diagnostico-row">
                 <div className="form-group">
                   <input className="form-input" value={diag.codigo}
@@ -585,16 +557,13 @@ export default function NuevaAtencion({ onSaved }) {
                 )}
               </div>
             ))}
-
             <button className="btn-add" onClick={addDiag}>
               <Plus size={14} /> Agregar diagnóstico
             </button>
           </div>
         </Section>
 
-        {/* ── Tratamiento ── */}
-        <Section icon={Heart} title="Tratamiento"
-          subtitle="Medicamentos prescritos" color="#E53E3E">
+        <Section icon={Heart} title="Tratamiento" subtitle="Medicamentos prescritos" color="#E53E3E">
           <div style={{ marginBottom: 8, display: 'grid', gridTemplateColumns: '1fr 100px 1fr 36px', gap: 8 }}>
             {['Medicamento', 'Cantidad', 'Posología', ''].map((h, i) => (
               <div key={i} style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', paddingLeft: 12 }}>{h}</div>
@@ -625,7 +594,6 @@ export default function NuevaAtencion({ onSaved }) {
           </div>
         </Section>
 
-        {/* ── Seguimiento + Guardar ── */}
         <div className="seguimiento-panel">
           <div>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--primary)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
