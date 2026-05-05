@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Stethoscope, ClipboardList, Users, Activity } from 'lucide-react'
+import { Activity, ClipboardList, Users, Heart } from 'lucide-react'
 import NuevaAtencion from './components/NuevaAtencion'
 import RegistroPacientes from './components/RegistroPacientes'
 
@@ -37,7 +37,7 @@ export default function App() {
           className={`nav-btn ${activeTab === 'nueva' ? 'active' : ''}`}
           onClick={() => setActiveTab('nueva')}
         >
-<Activity size={17} />          
+          <Activity size={17} />
           Nueva Atención
         </button>
 
