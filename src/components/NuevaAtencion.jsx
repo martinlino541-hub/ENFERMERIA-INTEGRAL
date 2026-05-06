@@ -202,6 +202,7 @@ export default function NuevaAtencion({onSaved}){
   const[tratamientos,setTratamientos]=useState([emptyTrat()])
   const[seguimiento,setSeguimiento]=useState(false)
   const[proximaConsulta,setProximaConsulta]=useState('')
+  const[horaConsulta,setHoraConsulta]=useState('')
 
   const imc=(()=>{const p=parseFloat(vitales.peso);const t=parseFloat(vitales.talla);if(p>0&&t>0)return(p/((t/100)**2)).toFixed(1);return''})()
   const imcClass=(()=>{const v=parseFloat(imc);if(!v)return'';if(v<18.5)return'Bajo peso';if(v<25)return'Normal';if(v<30)return'Sobrepeso';return'Obesidad'})()
@@ -233,7 +234,7 @@ export default function NuevaAtencion({onSaved}){
       const{data:ae}=await supabase.from('antecedentes').select('id').eq('paciente_id',pacienteId).single()
       const ad={paciente_id:pacienteId,patologicos_personales:antecedentes.patologicos,alergicos:antecedentes.alergicos,quirurgicos:antecedentes.quirurgicos,patologicos_familiares:antecedentes.familiares,gestas:parseInt(antecedentes.gestas)||null,partos_vaginales:parseInt(antecedentes.partos)||null,cesareas:parseInt(antecedentes.cesareas)||null,abortos:parseInt(antecedentes.abortos)||null,metodo_planificacion:antecedentes.planificacion}
       if(ae){await supabase.from('antecedentes').update(ad).eq('id',ae.id)}else{await supabase.from('antecedentes').insert(ad)}
-      const{data:at,error:ate}=await supabase.from('atenciones').insert({paciente_id:pacienteId,fecha_atencion:fecha,motivo_consulta:motivo,presion_arterial:vitales.pa,temperatura:parseFloat(vitales.temperatura)||null,saturacion:parseFloat(vitales.saturacion)||null,frecuencia_respiratoria:parseInt(vitales.fr)||null,estado_consciencia:vitales.consciencia,peso:parseFloat(vitales.peso)||null,talla:parseFloat(vitales.talla)||null,imc:parseFloat(imc)||null,perimetro_abdominal:parseFloat(vitales.perimetro)||null,evolucion,requiere_seguimiento:seguimiento,proxima_consulta:seguimiento&&proximaConsulta?proximaConsulta:null}).select('id').single()
+      const{data:at,error:ate}=await supabase.from('atenciones').insert({paciente_id:pacienteId,fecha_atencion:fecha,motivo_consulta:motivo,presion_arterial:vitales.pa,temperatura:parseFloat(vitales.temperatura)||null,saturacion:parseFloat(vitales.saturacion)||null,frecuencia_respiratoria:parseInt(vitales.fr)||null,estado_consciencia:vitales.consciencia,peso:parseFloat(vitales.peso)||null,talla:parseFloat(vitales.talla)||null,imc:parseFloat(imc)||null,perimetro_abdominal:parseFloat(vitales.perimetro)||null,evolucion,requiere_seguimiento:seguimiento,proxima_consulta:seguimiento&&proximaConsulta?proximaConsulta:null,hora_proxima_consulta:seguimiento&&horaConsulta?horaConsulta:null}).select('id').single()
       if(ate)throw ate
       const efd={atencion_id:at.id}
       EF_SECTIONS.forEach(s=>s.items.forEach(i=>{const k=`${s.key}_${i.key}`;efd[k]=!!examenFisico[k];efd[`${k}_obs`]=examenFisico[`${k}_obs`]||null}))
@@ -372,7 +373,24 @@ export default function NuevaAtencion({onSaved}){
             <div style={{fontSize:13,color:'var(--text-muted)'}}>¿Requiere próxima consulta de seguimiento?</div>
           </div>
           <label className="toggle-switch"><input type="checkbox" checked={seguimiento} onChange={e=>setSeguimiento(e.target.checked)}/><span className="toggle-slider"/></label>
-          {seguimiento&&(<div className="form-group" style={{flex:1,maxWidth:240}}><label className="form-label">Fecha próxima consulta</label><input type="date" className="form-input" value={proximaConsulta} onChange={e=>setProximaConsulta(e.target.value)} min={today}/></div>)}
+          {seguimiento&&(
+            <div style={{display:'flex',gap:10,flex:1,flexWrap:'wrap'}}>
+              <div className="form-group" style={{minWidth:180}}>
+                <label className="form-label">📅 Fecha próxima consulta</label>
+                <input type="date" className="form-input" value={proximaConsulta} onChange={e=>setProximaConsulta(e.target.value)} min={today}/>
+              </div>
+              <div className="form-group" style={{minWidth:140}}>
+                <label className="form-label">🕐 Hora de la cita</label>
+                <input type="time" className="form-input" value={horaConsulta} onChange={e=>setHoraConsulta(e.target.value)}/>
+              </div>
+              {proximaConsulta&&(
+                <div style={{alignSelf:'flex-end',padding:'8px 14px',background:'rgba(0,201,167,0.15)',borderRadius:10,fontSize:13,fontWeight:600,color:'var(--accent)',whiteSpace:'nowrap',marginBottom:2}}>
+                  {new Date(proximaConsulta+'T00:00:00').toLocaleDateString('es-EC',{weekday:'short',day:'2-digit',month:'short'})}
+                  {horaConsulta&&` · ${horaConsulta}`}
+                </div>
+              )}
+            </div>
+          )}
           <div style={{marginLeft:'auto'}}><button className="btn-save" onClick={handleSave} disabled={saving}>{saving?<span className="loading-spinner"/>:<Save size={18}/>}{saving?'Guardando...':'Guardar Atención'}</button></div>
         </div>
 
