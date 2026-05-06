@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Activity, ClipboardList, Users, Heart } from 'lucide-react'
+import { Activity, ClipboardList, Calendar } from 'lucide-react'
 import NuevaAtencion from './components/NuevaAtencion'
 import RegistroPacientes from './components/RegistroPacientes'
+import Agenda from './components/Agenda'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('nueva')
@@ -42,6 +43,14 @@ export default function App() {
         </button>
 
         <button
+          className={`nav-btn ${activeTab === 'agenda' ? 'active' : ''}`}
+          onClick={() => setActiveTab('agenda')}
+        >
+          <Calendar size={17} />
+          Agenda
+        </button>
+
+        <button
           className={`nav-btn ${activeTab === 'registro' ? 'active' : ''}`}
           onClick={() => setActiveTab('registro')}
         >
@@ -54,12 +63,9 @@ export default function App() {
       </nav>
 
       <div className="main-content">
-        {activeTab === 'nueva' && (
-          <NuevaAtencion onSaved={handleSaved} />
-        )}
-        {activeTab === 'registro' && (
-          <RegistroPacientes key={refresh} />
-        )}
+        {activeTab === 'nueva' && <NuevaAtencion onSaved={handleSaved} />}
+        {activeTab === 'agenda' && <Agenda key={refresh} />}
+        {activeTab === 'registro' && <RegistroPacientes key={refresh} />}
       </div>
     </>
   )
