@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Activity, ClipboardList, Calendar } from 'lucide-react'
+import { Activity, ClipboardList, Calendar, ClipboardCheck } from 'lucide-react'
 import NuevaAtencion from './components/NuevaAtencion'
 import RegistroPacientes from './components/RegistroPacientes'
 import Agenda from './components/Agenda'
+import ListaDia from './components/ListaDia'
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('nueva')
+  const [activeTab, setActiveTab] = useState('lista')
   const [refresh, setRefresh] = useState(0)
   const [today, setToday] = useState('')
 
@@ -34,28 +35,20 @@ export default function App() {
 
         <div className="topbar-divider" />
 
-        <button
-          className={`nav-btn ${activeTab === 'nueva' ? 'active' : ''}`}
-          onClick={() => setActiveTab('nueva')}
-        >
-          <Activity size={17} />
-          Nueva Atención
+        <button className={`nav-btn ${activeTab === 'lista' ? 'active' : ''}`} onClick={() => setActiveTab('lista')}>
+          <ClipboardCheck size={17} /> Lista del Día
         </button>
 
-        <button
-          className={`nav-btn ${activeTab === 'agenda' ? 'active' : ''}`}
-          onClick={() => setActiveTab('agenda')}
-        >
-          <Calendar size={17} />
-          Agenda
+        <button className={`nav-btn ${activeTab === 'nueva' ? 'active' : ''}`} onClick={() => setActiveTab('nueva')}>
+          <Activity size={17} /> Nueva Atención
         </button>
 
-        <button
-          className={`nav-btn ${activeTab === 'registro' ? 'active' : ''}`}
-          onClick={() => setActiveTab('registro')}
-        >
-          <ClipboardList size={17} />
-          Registro de Pacientes
+        <button className={`nav-btn ${activeTab === 'agenda' ? 'active' : ''}`} onClick={() => setActiveTab('agenda')}>
+          <Calendar size={17} /> Agenda
+        </button>
+
+        <button className={`nav-btn ${activeTab === 'registro' ? 'active' : ''}`} onClick={() => setActiveTab('registro')}>
+          <ClipboardList size={17} /> Registro de Pacientes
         </button>
 
         <div className="topbar-spacer" />
@@ -63,10 +56,12 @@ export default function App() {
       </nav>
 
       <div className="main-content">
-        {activeTab === 'nueva' && <NuevaAtencion onSaved={handleSaved} />}
-        {activeTab === 'agenda' && <Agenda key={refresh} />}
+        {activeTab === 'lista'    && <ListaDia key={refresh} />}
+        {activeTab === 'nueva'    && <NuevaAtencion onSaved={handleSaved} />}
+        {activeTab === 'agenda'   && <Agenda key={refresh} />}
         {activeTab === 'registro' && <RegistroPacientes key={refresh} />}
       </div>
     </>
   )
 }
+
