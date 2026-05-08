@@ -490,6 +490,9 @@ export default function NuevaAtencion({onSaved}){
     const t=setTimeout(buscar,500)
     return()=>clearTimeout(t)
   },[generales.cedula])
+
+  useEffect(()=>{
+    if(generales.fecha_nacimiento){
       const n=new Date(generales.fecha_nacimiento);const h=new Date();let e=h.getFullYear()-n.getFullYear();const m=h.getMonth()-n.getMonth();if(m<0||(m===0&&h.getDate()<n.getDate()))e--;
       setGenerales(p=>({...p,edad:String(e)}))
     }
