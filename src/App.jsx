@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Activity, ClipboardList, Calendar, ClipboardCheck } from 'lucide-react'
+import { Activity, ClipboardList, Calendar, ClipboardCheck, BarChart2 } from 'lucide-react'
 import NuevaAtencion from './components/NuevaAtencion'
 import RegistroPacientes from './components/RegistroPacientes'
 import Agenda from './components/Agenda'
 import ListaDia from './components/ListaDia'
+import Dashboard from './components/Dashboard'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('lista')
@@ -48,7 +49,11 @@ export default function App() {
         </button>
 
         <button className={`nav-btn ${activeTab === 'registro' ? 'active' : ''}`} onClick={() => setActiveTab('registro')}>
-          <ClipboardList size={17} /> Registro de Pacientes
+          <ClipboardList size={17} /> Registro
+        </button>
+
+        <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+          <BarChart2 size={17} /> Estadísticas
         </button>
 
         <div className="topbar-spacer" />
@@ -56,12 +61,12 @@ export default function App() {
       </nav>
 
       <div className="main-content">
-        {activeTab === 'lista'    && <ListaDia key={refresh} />}
-        {activeTab === 'nueva'    && <NuevaAtencion onSaved={handleSaved} />}
-        {activeTab === 'agenda'   && <Agenda key={refresh} />}
-        {activeTab === 'registro' && <RegistroPacientes key={refresh} />}
+        {activeTab === 'lista'     && <ListaDia key={refresh} />}
+        {activeTab === 'nueva'     && <NuevaAtencion onSaved={handleSaved} />}
+        {activeTab === 'agenda'    && <Agenda key={refresh} />}
+        {activeTab === 'registro'  && <RegistroPacientes key={refresh} />}
+        {activeTab === 'dashboard' && <Dashboard key={refresh} />}
       </div>
     </>
   )
 }
-
