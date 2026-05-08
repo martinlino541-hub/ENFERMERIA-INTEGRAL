@@ -137,33 +137,195 @@ function Dropdown({items,onSelect,renderItem,loading}){
   )
 }
 
+// Lista embebida en español (fallback)
+const CIE10_ES_LOCAL = [
+  {code:'A00',name:'Cólera'},{code:'A01.0',name:'Fiebre tifoidea'},{code:'A09',name:'Diarrea y gastroenteritis de presunto origen infeccioso'},
+  {code:'A15.0',name:'Tuberculosis del pulmón'},{code:'A36.0',name:'Difteria faríngea'},{code:'A37.0',name:'Tos ferina por Bordetella pertussis'},
+  {code:'A40',name:'Septicemia estreptocócica'},{code:'A41.9',name:'Septicemia, no especificada'},{code:'A46',name:'Erisipela'},
+  {code:'A49.0',name:'Infección estafilocócica, sin otra especificación'},{code:'B00.1',name:'Herpes viral de piel y mucosas'},
+  {code:'B01.9',name:'Varicela sin complicaciones'},{code:'B02.9',name:'Herpes zoster sin complicaciones'},
+  {code:'B05.9',name:'Sarampión sin complicaciones'},{code:'B06.9',name:'Rubéola sin complicaciones'},
+  {code:'B15.9',name:'Hepatitis A sin coma hepático'},{code:'B18.1',name:'Hepatitis viral crónica B sin agente delta'},
+  {code:'B19.9',name:'Hepatitis viral no especificada sin coma'},{code:'B24',name:'Enfermedad por VIH, no especificada'},
+  {code:'B34.9',name:'Infección viral, no especificada'},{code:'B35.1',name:'Tiña de las uñas'},
+  {code:'B37.0',name:'Estomatitis candidiásica'},{code:'B37.3',name:'Candidiasis de la vulva y de la vagina'},
+  {code:'B49',name:'Micosis, no especificada'},{code:'B82.9',name:'Parasitosis intestinal, no especificada'},
+  {code:'C18.9',name:'Tumor maligno del colon, parte no especificada'},{code:'C34.1',name:'Tumor maligno del lóbulo superior del bronquio o del pulmón'},
+  {code:'C50.9',name:'Tumor maligno de la mama, parte no especificada'},{code:'C53.9',name:'Tumor maligno del cuello del útero, no especificada'},
+  {code:'C61',name:'Tumor maligno de la próstata'},{code:'C73',name:'Tumor maligno de la glándula tiroides'},
+  {code:'D50.9',name:'Anemia por deficiencia de hierro, no especificada'},{code:'D64.9',name:'Anemia, no especificada'},
+  {code:'E03.9',name:'Hipotiroidismo, no especificado'},{code:'E05.0',name:'Tirotoxicosis con bocio difuso'},
+  {code:'E05.9',name:'Tirotoxicosis, no especificada'},{code:'E06.3',name:'Tiroiditis autoinmune'},
+  {code:'E10.9',name:'Diabetes mellitus tipo 1 sin complicaciones'},{code:'E11.9',name:'Diabetes mellitus tipo 2 sin complicaciones'},
+  {code:'E11.65',name:'Diabetes mellitus tipo 2 con hiperglucemia'},{code:'E11.40',name:'Diabetes mellitus tipo 2 con neuropatía diabética'},
+  {code:'E14.9',name:'Diabetes mellitus no especificada sin complicaciones'},{code:'E27.1',name:'Insuficiencia suprarrenal primaria'},
+  {code:'E46',name:'Desnutrición proteicocalórica, no especificada'},{code:'E55.9',name:'Deficiencia de vitamina D, no especificada'},
+  {code:'E58',name:'Deficiencia dietética de calcio'},{code:'E61.1',name:'Deficiencia de hierro'},
+  {code:'E66.9',name:'Obesidad, no especificada'},{code:'E78.0',name:'Hipercolesterolemia pura'},
+  {code:'E78.1',name:'Hipertrigliceridemia pura'},{code:'E78.5',name:'Hiperlipidemia, no especificada'},
+  {code:'E83.5',name:'Trastornos del metabolismo del calcio'},{code:'E87.1',name:'Hiposmolalidad e hiponatremia'},
+  {code:'F10.1',name:'Trastornos mentales debidos al uso del alcohol'},{code:'F20.9',name:'Esquizofrenia, no especificada'},
+  {code:'F31.9',name:'Trastorno bipolar, no especificado'},{code:'F32.0',name:'Episodio depresivo leve'},
+  {code:'F32.1',name:'Episodio depresivo moderado'},{code:'F32.2',name:'Episodio depresivo grave sin síntomas psicóticos'},
+  {code:'F32.9',name:'Episodio depresivo, no especificado'},{code:'F33.9',name:'Trastorno depresivo recurrente, no especificado'},
+  {code:'F40.1',name:'Fobias sociales'},{code:'F41.0',name:'Trastorno de pánico'},
+  {code:'F41.1',name:'Trastorno de ansiedad generalizada'},{code:'F41.2',name:'Trastorno mixto ansioso-depresivo'},
+  {code:'F43.0',name:'Reacción a estrés agudo'},{code:'F43.1',name:'Trastorno de estrés postraumático'},
+  {code:'F43.2',name:'Trastornos de adaptación'},{code:'F43.10',name:'Síndrome de burnout / Agotamiento laboral'},
+  {code:'F44.9',name:'Trastorno disociativo, no especificado'},{code:'F45.0',name:'Trastorno de somatización'},
+  {code:'F48.0',name:'Neurastenia'},{code:'F51.0',name:'Insomnio no orgánico'},
+  {code:'G20',name:'Enfermedad de Parkinson'},{code:'G35',name:'Esclerosis múltiple'},
+  {code:'G40.9',name:'Epilepsia, no especificada'},{code:'G43.0',name:'Migraña sin aura'},
+  {code:'G43.1',name:'Migraña con aura'},{code:'G43.9',name:'Migraña, no especificada'},
+  {code:'G44.2',name:'Cefalea de tipo tensión'},{code:'G47.0',name:'Trastornos del inicio y del mantenimiento del sueño'},
+  {code:'G51.0',name:'Parálisis de Bell'},{code:'G54.2',name:'Lesión de raíces nerviosas cervicales'},
+  {code:'G54.3',name:'Lesión de raíces nerviosas torácicas'},{code:'G54.4',name:'Lesión de raíces nerviosas lumbosacras'},
+  {code:'G62.9',name:'Polineuropatía, no especificada'},{code:'H10.9',name:'Conjuntivitis, no especificada'},
+  {code:'H52.1',name:'Miopía'},{code:'H52.2',name:'Astigmatismo'},{code:'H52.4',name:'Presbicia'},
+  {code:'H61.2',name:'Cerumen impactado'},{code:'H65.9',name:'Otitis media no supurativa, no especificada'},
+  {code:'H66.9',name:'Otitis media supurativa, no especificada'},{code:'H83.3',name:'Trastornos cocleares por ruido'},
+  {code:'H91.9',name:'Pérdida de audición, no especificada'},{code:'I10',name:'Hipertensión esencial (primaria)'},
+  {code:'I20.9',name:'Angina de pecho, no especificada'},{code:'I21.9',name:'Infarto agudo del miocardio, no especificado'},
+  {code:'I25.1',name:'Enfermedad aterosclerótica del corazón'},{code:'I26.9',name:'Embolia pulmonar sin mención de cor pulmonale agudo'},
+  {code:'I48',name:'Fibrilación y aleteo auricular'},{code:'I50.0',name:'Insuficiencia cardíaca congestiva'},
+  {code:'I50.9',name:'Insuficiencia cardíaca, no especificada'},{code:'I63.9',name:'Infarto cerebral, no especificado'},
+  {code:'I64',name:'Accidente vascular encefálico, no especificado como hemorrágico o isquémico'},
+  {code:'I70.2',name:'Arterioesclerosis de las arterias de los miembros'},{code:'I83.9',name:'Várices de los miembros inferiores sin úlcera ni inflamación'},
+  {code:'J00',name:'Rinofaringitis aguda (resfriado común)'},{code:'J01.0',name:'Sinusitis maxilar aguda'},
+  {code:'J02.9',name:'Faringitis aguda, no especificada'},{code:'J03.9',name:'Amigdalitis aguda, no especificada'},
+  {code:'J04.0',name:'Laringitis aguda'},{code:'J06.9',name:'Infección aguda de las vías respiratorias superiores, no especificada'},
+  {code:'J11.1',name:'Influenza con otras manifestaciones respiratorias, virus no identificado'},
+  {code:'J18.9',name:'Neumonía, no especificada'},{code:'J20.9',name:'Bronquitis aguda, no especificada'},
+  {code:'J30.1',name:'Rinitis alérgica debida al polen'},{code:'J30.4',name:'Rinitis alérgica, no especificada'},
+  {code:'J32.0',name:'Sinusitis maxilar crónica'},{code:'J32.9',name:'Sinusitis crónica, no especificada'},
+  {code:'J35.0',name:'Amigdalitis crónica'},{code:'J35.1',name:'Hipertrofia de las amígdalas'},
+  {code:'J40',name:'Bronquitis, no especificada como aguda o crónica'},{code:'J42',name:'Bronquitis crónica no especificada'},
+  {code:'J44.1',name:'Enfermedad pulmonar obstructiva crónica con exacerbación aguda'},
+  {code:'J45.0',name:'Asma predominantemente alérgica'},{code:'J45.1',name:'Asma no alérgica'},
+  {code:'J45.9',name:'Asma, no especificada'},{code:'J60',name:'Neumoconiosis de los trabajadores del carbón'},
+  {code:'J68.0',name:'Bronquitis y neumonitis debida a sólidos y líquidos'},
+  {code:'K02.9',name:'Caries dental, no especificada'},{code:'K04.0',name:'Pulpitis'},
+  {code:'K08.1',name:'Pérdida de dientes debida a accidente, extracción o enfermedad periodontal local'},
+  {code:'K21.0',name:'Enfermedad por reflujo gastroesofágico con esofagitis'},
+  {code:'K21.9',name:'Enfermedad por reflujo gastroesofágico sin esofagitis'},
+  {code:'K25.9',name:'Úlcera gástrica, no especificada como aguda o crónica'},
+  {code:'K26.9',name:'Úlcera duodenal, no especificada como aguda o crónica'},
+  {code:'K29.0',name:'Gastritis aguda hemorrágica'},{code:'K29.5',name:'Gastritis crónica, no especificada'},
+  {code:'K29.7',name:'Gastritis, no especificada'},{code:'K30',name:'Dispepsia'},
+  {code:'K35.9',name:'Apendicitis aguda, no especificada'},{code:'K37',name:'Apendicitis, no especificada'},
+  {code:'K57.30',name:'Enfermedad diverticular del intestino grueso sin perforación ni absceso'},
+  {code:'K58.9',name:'Síndrome del intestino irritable sin diarrea'},{code:'K59.0',name:'Estreñimiento'},
+  {code:'K70.3',name:'Cirrosis hepática alcohólica'},{code:'K72.9',name:'Insuficiencia hepática, no especificada'},
+  {code:'K74.6',name:'Otras cirrosis del hígado y las no especificadas'},
+  {code:'K80.2',name:'Colelitiasis sin colecistitis'},{code:'K85.9',name:'Pancreatitis aguda, no especificada'},
+  {code:'K92.0',name:'Hematemesis'},{code:'K92.1',name:'Melena'},
+  {code:'L01.0',name:'Impétigo'},{code:'L02.9',name:'Absceso cutáneo, furúnculo y ántrax de lugar no especificado'},
+  {code:'L03.9',name:'Celulitis, no especificada'},{code:'L08.9',name:'Infección local de la piel y del tejido subcutáneo, no especificada'},
+  {code:'L20.9',name:'Dermatitis atópica, no especificada'},{code:'L23.9',name:'Dermatitis alérgica de contacto, causa no especificada'},
+  {code:'L25.9',name:'Dermatitis de contacto no especificada, causa no especificada'},
+  {code:'L30.9',name:'Dermatitis, no especificada'},{code:'L40.9',name:'Psoriasis, no especificada'},
+  {code:'L50.0',name:'Urticaria alérgica'},{code:'L50.9',name:'Urticaria, no especificada'},
+  {code:'L60.0',name:'Uña encarnada'},{code:'L70.0',name:'Acné vulgar'},
+  {code:'M05.9',name:'Artritis reumatoide seropositiva, no especificada'},
+  {code:'M06.9',name:'Artritis reumatoide, no especificada'},{code:'M10.9',name:'Gota, no especificada'},
+  {code:'M13.9',name:'Artritis, no especificada'},{code:'M15.9',name:'Poliartrosis, no especificada'},
+  {code:'M16.9',name:'Coxartrosis, no especificada'},{code:'M17.9',name:'Gonartrosis, no especificada'},
+  {code:'M25.5',name:'Dolor en articulación'},{code:'M47.9',name:'Espondiloartrosis, no especificada'},
+  {code:'M48.0',name:'Estenosis espinal'},{code:'M50.1',name:'Degeneración del disco cervical'},
+  {code:'M51.1',name:'Degeneración del disco lumbar y de otros discos intervertebrales con radiculopatía'},
+  {code:'M51.9',name:'Degeneración del disco intervertebral, no especificada'},
+  {code:'M54.2',name:'Cervicalgia'},{code:'M54.3',name:'Ciática'},
+  {code:'M54.4',name:'Lumbago con ciática'},{code:'M54.5',name:'Lumbago, no especificado'},
+  {code:'M54.6',name:'Dolor en la columna dorsal'},{code:'M65.3',name:'Dedo en gatillo'},
+  {code:'M75.0',name:'Síndrome de manguito rotador'},{code:'M75.1',name:'Síndrome del manguito de los rotadores'},
+  {code:'M77.1',name:'Epicondilitis lateral'},{code:'M77.0',name:'Epicondilitis medial'},
+  {code:'M79.1',name:'Mialgia'},{code:'M79.2',name:'Neuralgia y neuritis, no especificadas'},
+  {code:'M79.3',name:'Paniculitis, no especificada'},{code:'M80.9',name:'Osteoporosis con fractura patológica, no especificada'},
+  {code:'M81.9',name:'Osteoporosis, no especificada'},
+  {code:'N10',name:'Nefritis tubulointersticial aguda'},{code:'N18.9',name:'Insuficiencia renal crónica, no especificada'},
+  {code:'N20.0',name:'Cálculo del riñón'},{code:'N20.1',name:'Cálculo del uréter'},
+  {code:'N23',name:'Cólico renal, no especificado'},{code:'N30.0',name:'Cistitis aguda'},
+  {code:'N39.0',name:'Infección de vías urinarias, sin localización especificada'},
+  {code:'N40',name:'Hiperplasia de la próstata'},{code:'N41.0',name:'Prostatitis aguda'},
+  {code:'N76.0',name:'Vaginitis aguda'},{code:'N80.9',name:'Endometriosis, no especificada'},
+  {code:'N83.2',name:'Otros quistes ováricos'},{code:'N92.0',name:'Menstruación excesiva y frecuente con ciclo regular'},
+  {code:'N94.6',name:'Dismenorrea, no especificada'},{code:'N95.1',name:'Estado menopáusico y climatérico femenino'},
+  {code:'O20.0',name:'Amenaza de aborto'},{code:'O80',name:'Parto único espontáneo'},
+  {code:'O82',name:'Parto por cesárea electiva'},{code:'O42.9',name:'Ruptura prematura de membranas, no especificada'},
+  {code:'R00.0',name:'Taquicardia, no especificada'},{code:'R00.1',name:'Bradicardia, no especificada'},
+  {code:'R05',name:'Tos'},{code:'R06.0',name:'Disnea'},{code:'R06.2',name:'Sibilancias'},
+  {code:'R07.4',name:'Dolor torácico, no especificado'},{code:'R07.9',name:'Dolor torácico, no especificado'},
+  {code:'R10.0',name:'Dolor abdominal agudo'},{code:'R10.4',name:'Otros dolores abdominales y los no especificados'},
+  {code:'R11',name:'Náuseas y vómitos'},{code:'R12',name:'Pirosis'},
+  {code:'R13',name:'Disfagia'},{code:'R14',name:'Flatulencia y afecciones relacionadas'},
+  {code:'R19.7',name:'Diarrea, no especificada'},{code:'R42',name:'Mareo y desvanecimiento'},
+  {code:'R50.9',name:'Fiebre, no especificada'},{code:'R51',name:'Cefalea'},
+  {code:'R52.9',name:'Dolor, no especificado'},{code:'R53',name:'Malestar y fatiga'},
+  {code:'R55',name:'Síncope y colapso'},{code:'R60.0',name:'Edema localizado'},
+  {code:'R73.0',name:'Glucosa elevada en análisis de sangre'},{code:'R73.09',name:'Hiperglucemia, no especificada'},
+  {code:'S00.9',name:'Traumatismo superficial de la cabeza, no especificado'},
+  {code:'S09.9',name:'Traumatismo de la cabeza, no especificado'},
+  {code:'S19.9',name:'Traumatismo del cuello, no especificado'},
+  {code:'S20.9',name:'Traumatismo superficial del tórax, no especificado'},
+  {code:'S30.9',name:'Traumatismo superficial del abdomen, de la región lumbosacra y de la pelvis, no especificado'},
+  {code:'S40.9',name:'Traumatismo superficial del hombro y del brazo, no especificado'},
+  {code:'S50.9',name:'Traumatismo superficial del antebrazo, no especificado'},
+  {code:'S60.9',name:'Traumatismo superficial de la muñeca y de la mano, no especificado'},
+  {code:'S70.9',name:'Traumatismo superficial de la cadera y del muslo, no especificado'},
+  {code:'S80.9',name:'Traumatismo superficial de la pierna, no especificado'},
+  {code:'S90.9',name:'Traumatismo superficial del tobillo y del pie, no especificado'},
+  {code:'T07',name:'Traumatismos múltiples, no especificados'},{code:'T14.0',name:'Herida de región no especificada del cuerpo'},
+  {code:'T67.0',name:'Golpe de calor e insolación'},{code:'T70.0',name:'Barotrauma ótico'},
+  {code:'W19',name:'Caída no especificada'},{code:'W29.9',name:'Contacto con objeto cortante no especificado'},
+  {code:'X50',name:'Esfuerzo y movimientos extenuantes, no especificados'},
+  {code:'Z00.0',name:'Examen médico general'},{code:'Z10.0',name:'Examen médico ocupacional'},
+  {code:'Z11.3',name:'Examen de detección de infecciones de transmisión sexual'},
+  {code:'Z23',name:'Necesidad de inmunización contra una sola enfermedad bacteriana'},
+  {code:'Z34.0',name:'Supervisión de primer embarazo normal'},{code:'Z57.0',name:'Exposición ocupacional al ruido'},
+  {code:'Z57.1',name:'Exposición ocupacional a la radiación'},{code:'Z57.2',name:'Exposición ocupacional al polvo'},
+  {code:'Z57.5',name:'Exposición ocupacional a agentes tóxicos en la agricultura y otros'},
+  {code:'Z57.7',name:'Exposición ocupacional a vibraciones'},{code:'Z73.0',name:'Agotamiento vital (burnout)'},
+  {code:'Z76.0',name:'Emisión de receta repetida'},
+]
+
+function searchCIE10Local(q){
+  if(!q||q.length<2)return[]
+  const ql=q.toLowerCase()
+  return CIE10_ES_LOCAL.filter(c=>c.code.toLowerCase().includes(ql)||c.name.toLowerCase().includes(ql)).slice(0,12)
+}
+
 function CIE10Search({value,onChange,onSelect}){
   const[open,setOpen]=useState(false)
   const[results,setResults]=useState([])
   const[loading,setLoading]=useState(false)
+  const[source,setSource]=useState('') // 'api' | 'local'
   const ref=useRef()
   const timerRef=useRef()
 
   useEffect(()=>{
-    if(value.length<2){setResults([]);setOpen(false);return}
+    if(value.length<2){setResults([]);setOpen(false);setSource('');return}
     setOpen(true)
     clearTimeout(timerRef.current)
     timerRef.current=setTimeout(async()=>{
       setLoading(true)
       try{
-        // API oficial NIH/NLM — base completa CIE-10-CM (70,000+ códigos)
-        const url=`https://clinicaltables.nlm.nih.gov/api/icd10cm/v3/search?sf=code,name&terms=${encodeURIComponent(value)}&maxList=12`
-        const res=await fetch(url)
-        const data=await res.json()
-        // data[3] = array de [code, description]
-        if(data&&data[3]){
-          setResults(data[3].map(([code,name])=>({code,name})))
+        // Intentar API cpockets.com (español, base completa OMS)
+        const res=await fetch(`https://cpockets.com/ajaxsearch10?term=${encodeURIComponent(value)}`,{
+          method:'GET',headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}
+        })
+        if(res.ok){
+          const data=await res.json()
+          if(Array.isArray(data)&&data.length>0){
+            setResults(data.slice(0,12).map(d=>({code:d.code||d.codigo||d[0],name:d.name||d.nombre||d[1]})))
+            setSource('api')
+            setLoading(false);return
+          }
         }
-      }catch(e){
-        // Fallback a lista local si falla la API
-        const ql=value.toLowerCase()
-        setResults(CIE10_LIST.filter(c=>c.code.toLowerCase().includes(ql)||c.name.toLowerCase().includes(ql)).slice(0,10))
-      }finally{setLoading(false)}
+      }catch(e){}
+      // Fallback: lista local en español
+      setResults(searchCIE10Local(value))
+      setSource('local')
+      setLoading(false)
     },350)
     return()=>clearTimeout(timerRef.current)
   },[value])
@@ -177,11 +339,25 @@ function CIE10Search({value,onChange,onSelect}){
   return(
     <div className="pos-relative" ref={ref}>
       <input className="form-input" value={value} onChange={e=>onChange(e.target.value)}
-        placeholder="Buscar código o diagnóstico CIE-10..." autoComplete="off"/>
+        placeholder="Buscar código o diagnóstico en español..." autoComplete="off"/>
       {open&&(loading||results.length>0)&&(
-        <Dropdown items={results} loading={loading}
-          onSelect={r=>{onSelect(r);setOpen(false)}}
-          renderItem={r=><><span className="cie10-code">{r.code}</span><span className="cie10-name">{r.name}</span></>}/>
+        <div className="cie10-dropdown">
+          {loading&&<div style={{padding:'10px 14px',fontSize:12,color:'var(--text-muted)',display:'flex',alignItems:'center',gap:8}}>
+            <span className="loading-spinner" style={{borderTopColor:'var(--primary)',borderColor:'var(--border)',width:12,height:12}}/>
+            Buscando en CIE-10...
+          </div>}
+          {!loading&&results.map((r,i)=>(
+            <div key={i} className="cie10-option" onMouseDown={()=>{onSelect(r);setOpen(false)}}>
+              <span className="cie10-code">{r.code}</span>
+              <span className="cie10-name">{r.name}</span>
+            </div>
+          ))}
+          {!loading&&results.length>0&&(
+            <div style={{padding:'4px 12px',fontSize:10,color:'var(--text-muted)',borderTop:'1px solid var(--border-light)',background:'var(--surface-2)'}}>
+              {source==='api'?'📡 Fuente: CIE-10 OMS en español':'📋 Base de datos local en español'}
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
@@ -240,6 +416,8 @@ export default function NuevaAtencion({onSaved}){
   const today=new Date().toISOString().split('T')[0]
   const[saving,setSaving]=useState(false)
   const[alert,setAlert]=useState(null)
+  const[cedulaBuscando,setCedulaBuscando]=useState(false)
+  const[cedulaEncontrado,setCedulaEncontrado]=useState(false)
   const[fecha,setFecha]=useState(today)
   const[generales,setGenerales]=useState({nombres:'',apellidos:'',cedula:'',telefono:'',edad:'',sexo:'',ocupacion:'',fecha_nacimiento:'',estado_civil:'',direccion:'',correo:'',grupo_sanguineo:''})
   const[antecedentes,setAntecedentes]=useState({patologicos:'',alergicos:'',quirurgicos:'',familiares:'',gestas:'',partos:'',cesareas:'',abortos:'',planificacion:''})
@@ -256,8 +434,62 @@ export default function NuevaAtencion({onSaved}){
   const imc=(()=>{const p=parseFloat(vitales.peso);const t=parseFloat(vitales.talla);if(p>0&&t>0)return(p/((t/100)**2)).toFixed(1);return''})()
   const imcClass=(()=>{const v=parseFloat(imc);if(!v)return'';if(v<18.5)return'Bajo peso';if(v<25)return'Normal';if(v<30)return'Sobrepeso';return'Obesidad'})()
 
+  // Auto-buscar paciente por cédula cuando tiene 10 dígitos
   useEffect(()=>{
-    if(generales.fecha_nacimiento){
+    const cedula=generales.cedula.replace(/\D/g,'')
+    if(cedula.length!==10){setCedulaEncontrado(false);return}
+    const buscar=async()=>{
+      setCedulaBuscando(true)
+      try{
+        const{data:pac}=await supabase
+          .from('pacientes')
+          .select('*')
+          .eq('cedula',cedula)
+          .single()
+        if(pac){
+          setCedulaEncontrado(true)
+          setGenerales(p=>({
+            ...p,
+            nombres:pac.nombres||'',
+            apellidos:pac.apellidos||'',
+            telefono:pac.telefono||'',
+            edad:pac.edad?.toString()||'',
+            sexo:pac.sexo||'',
+            ocupacion:pac.ocupacion||'',
+            fecha_nacimiento:pac.fecha_nacimiento||'',
+            estado_civil:pac.estado_civil||'',
+            direccion:pac.direccion||'',
+            correo:pac.correo||'',
+            grupo_sanguineo:pac.grupo_sanguineo||'',
+          }))
+          // Cargar antecedentes si existen
+          const{data:ant}=await supabase
+            .from('antecedentes')
+            .select('*')
+            .eq('paciente_id',pac.id)
+            .single()
+          if(ant){
+            setAntecedentes({
+              patologicos:ant.patologicos_personales||'',
+              alergicos:ant.alergicos||'',
+              quirurgicos:ant.quirurgicos||'',
+              familiares:ant.patologicos_familiares||'',
+              gestas:ant.gestas?.toString()||'',
+              partos:ant.partos_vaginales?.toString()||'',
+              cesareas:ant.cesareas?.toString()||'',
+              abortos:ant.abortos?.toString()||'',
+              planificacion:ant.metodo_planificacion||'',
+            })
+          }
+        }else{
+          setCedulaEncontrado(false)
+        }
+      }catch(e){setCedulaEncontrado(false)}
+      finally{setCedulaBuscando(false)}
+    }
+    const t=setTimeout(buscar,500)
+    return()=>clearTimeout(t)
+  },[generales.cedula])
       const n=new Date(generales.fecha_nacimiento);const h=new Date();let e=h.getFullYear()-n.getFullYear();const m=h.getMonth()-n.getMonth();if(m<0||(m===0&&h.getDate()<n.getDate()))e--;
       setGenerales(p=>({...p,edad:String(e)}))
     }
@@ -316,7 +548,20 @@ export default function NuevaAtencion({onSaved}){
           <div className="form-grid form-grid-3">
             <div className="form-group"><label className="form-label required">Nombres</label><input className="form-input" value={generales.nombres} onChange={e=>setGen('nombres',e.target.value)} placeholder="Nombres del paciente"/></div>
             <div className="form-group"><label className="form-label required">Apellidos</label><input className="form-input" value={generales.apellidos} onChange={e=>setGen('apellidos',e.target.value)} placeholder="Apellidos del paciente"/></div>
-            <div className="form-group"><label className="form-label">Número de Cédula</label><input className="form-input" value={generales.cedula} onChange={e=>setGen('cedula',e.target.value)} placeholder="0912345678" maxLength={13}/></div>
+            <div className="form-group">
+              <label className="form-label">Número de Cédula</label>
+              <div className="pos-relative">
+                <input className="form-input" value={generales.cedula}
+                  onChange={e=>setGen('cedula',e.target.value.replace(/\D/g,''))}
+                  placeholder="0912345678" maxLength={10}
+                  style={{paddingRight:36, borderColor: cedulaEncontrado?'var(--accent)':undefined}}/>
+                <div style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)'}}>
+                  {cedulaBuscando&&<span className="loading-spinner" style={{borderTopColor:'var(--primary)',borderColor:'var(--border)',width:14,height:14}}/>}
+                  {!cedulaBuscando&&cedulaEncontrado&&<span style={{color:'var(--accent)',fontSize:16}}>✓</span>}
+                </div>
+              </div>
+              {cedulaEncontrado&&<div style={{fontSize:11,color:'var(--accent)',marginTop:3,fontWeight:600}}>✓ Paciente encontrado — datos precargados</div>}
+            </div>
             <div className="form-group"><label className="form-label">Fecha de Nacimiento</label><input type="date" className="form-input" value={generales.fecha_nacimiento} onChange={e=>setGen('fecha_nacimiento',e.target.value)}/></div>
             <div className="form-group"><label className="form-label">Edad (años)</label><input type="number" className="form-input" value={generales.edad} onChange={e=>setGen('edad',e.target.value)} placeholder="Se calcula automáticamente" style={generales.fecha_nacimiento?{background:'var(--surface-2)'}:{}} readOnly={!!generales.fecha_nacimiento}/></div>
             <div className="form-group"><label className="form-label">Sexo</label><select className="form-select" value={generales.sexo} onChange={e=>setGen('sexo',e.target.value)}><option value="">Seleccionar</option><option value="Masculino">Masculino</option><option value="Femenino">Femenino</option><option value="Otro">Otro</option></select></div>
