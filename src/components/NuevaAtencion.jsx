@@ -489,6 +489,8 @@ export default function NuevaAtencion({onSaved}){
   const[examenFisico,setExamenFisico]=useState({})
   const[diagnosticos,setDiagnosticos]=useState([emptyDiag()])
   const[tratamientos,setTratamientos]=useState([emptyTrat()])
+  const[observaciones,setObservaciones]=useState('')
+  const[recomendaciones,setRecomendaciones]=useState('')
   const[seguimiento,setSeguimiento]=useState(false)
   const[proximaConsulta,setProximaConsulta]=useState('')
   const[horaConsulta,setHoraConsulta]=useState('')
@@ -580,7 +582,7 @@ export default function NuevaAtencion({onSaved}){
       const{data:ae}=await supabase.from('antecedentes').select('id').eq('paciente_id',pacienteId).single()
       const ad={paciente_id:pacienteId,patologicos_personales:antecedentes.patologicos,alergicos:antecedentes.alergicos,quirurgicos:antecedentes.quirurgicos,patologicos_familiares:antecedentes.familiares,gestas:parseInt(antecedentes.gestas)||null,partos_vaginales:parseInt(antecedentes.partos)||null,cesareas:parseInt(antecedentes.cesareas)||null,abortos:parseInt(antecedentes.abortos)||null,metodo_planificacion:antecedentes.planificacion}
       if(ae){await supabase.from('antecedentes').update(ad).eq('id',ae.id)}else{await supabase.from('antecedentes').insert(ad)}
-      const{data:at,error:ate}=await supabase.from('atenciones').insert({paciente_id:pacienteId,fecha_atencion:fecha,motivo_consulta:motivo,presion_arterial:vitales.pa,temperatura:parseFloat(vitales.temperatura)||null,saturacion:parseFloat(vitales.saturacion)||null,frecuencia_respiratoria:parseInt(vitales.fr)||null,estado_consciencia:vitales.consciencia,peso:parseFloat(vitales.peso)||null,talla:parseFloat(vitales.talla)||null,imc:parseFloat(imc)||null,perimetro_abdominal:parseFloat(vitales.perimetro)||null,evolucion,requiere_seguimiento:seguimiento,proxima_consulta:seguimiento&&proximaConsulta?proximaConsulta:null,hora_proxima_consulta:seguimiento&&horaConsulta?horaConsulta:null}).select('id').single()
+      const{data:at,error:ate}=await supabase.from('atenciones').insert({paciente_id:pacienteId,fecha_atencion:fecha,motivo_consulta:motivo,presion_arterial:vitales.pa,temperatura:parseFloat(vitales.temperatura)||null,saturacion:parseFloat(vitales.saturacion)||null,frecuencia_respiratoria:parseInt(vitales.fr)||null,estado_consciencia:vitales.consciencia,peso:parseFloat(vitales.peso)||null,talla:parseFloat(vitales.talla)||null,imc:parseFloat(imc)||null,perimetro_abdominal:parseFloat(vitales.perimetro)||null,evolucion,observaciones:observaciones||null,recomendaciones:recomendaciones||null,requiere_seguimiento:seguimiento,proxima_consulta:seguimiento&&proximaConsulta?proximaConsulta:null,hora_proxima_consulta:seguimiento&&horaConsulta?horaConsulta:null}).select('id').single()
       if(ate)throw ate
       const efd={atencion_id:at.id}
       EF_SECTIONS.forEach(s=>s.items.forEach(i=>{const k=`${s.key}_${i.key}`;efd[k]=!!examenFisico[k];efd[`${k}_obs`]=examenFisico[`${k}_obs`]||null}))
@@ -723,6 +725,28 @@ export default function NuevaAtencion({onSaved}){
               </div>
             ))}
             <button className="btn-add" onClick={addTrat}><Plus size={14}/> Agregar medicamento</button>
+          </div>
+
+          {/* Observaciones y Recomendaciones */}
+          <div style={{marginTop:20,borderTop:'1.5px dashed var(--border-light)',paddingTop:16,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+            <div className="form-group">
+              <label className="form-label" style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:15}}>📝</span> Observaciones
+              </label>
+              <textarea className="form-textarea" value={observaciones}
+                onChange={e=>setObservaciones(e.target.value)}
+                placeholder="Observaciones clínicas adicionales, notas del médico..."
+                style={{minHeight:90}}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:15}}>💡</span> Recomendaciones
+              </label>
+              <textarea className="form-textarea" value={recomendaciones}
+                onChange={e=>setRecomendaciones(e.target.value)}
+                placeholder="Reposo, dieta, actividad física, evitar exposición a ruido, usar EPP..."
+                style={{minHeight:90}}/>
+            </div>
           </div>
         </Section>
 
