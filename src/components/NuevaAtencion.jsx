@@ -296,39 +296,20 @@ function searchCIE10Local(q){
 
 function CIE10Search({value,onChange,onSelect}){
   const[open,setOpen]=useState(false)
-  const[results,setResults]=useState([])
-  const[loading,setLoading]=useState(false)
-  const[source,setSource]=useState('') // 'api' | 'local'
   const ref=useRef()
-  const timerRef=useRef()
+
+  const results = value.length >= 1
+    ? CIE10_ES_LOCAL.filter(c => {
+        const q = value.toLowerCase()
+        return c.code.toLowerCase().startsWith(q) ||
+               c.code.toLowerCase().includes(q) ||
+               c.name.toLowerCase().includes(q)
+      }).slice(0,12)
+    : []
 
   useEffect(()=>{
-    if(value.length<2){setResults([]);setOpen(false);setSource('');return}
-    setOpen(true)
-    clearTimeout(timerRef.current)
-    timerRef.current=setTimeout(async()=>{
-      setLoading(true)
-      try{
-        // Intentar API cpockets.com (español, base completa OMS)
-        const res=await fetch(`https://cpockets.com/ajaxsearch10?term=${encodeURIComponent(value)}`,{
-          method:'GET',headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}
-        })
-        if(res.ok){
-          const data=await res.json()
-          if(Array.isArray(data)&&data.length>0){
-            setResults(data.slice(0,12).map(d=>({code:d.code||d.codigo||d[0],name:d.name||d.nombre||d[1]})))
-            setSource('api')
-            setLoading(false);return
-          }
-        }
-      }catch(e){}
-      // Fallback: lista local en español
-      setResults(searchCIE10Local(value))
-      setSource('local')
-      setLoading(false)
-    },350)
-    return()=>clearTimeout(timerRef.current)
-  },[value])
+    setOpen(value.length>=1 && results.length>0)
+  },[value, results.length])
 
   useEffect(()=>{
     const h=(e)=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false)}
@@ -338,25 +319,22 @@ function CIE10Search({value,onChange,onSelect}){
 
   return(
     <div className="pos-relative" ref={ref}>
-      <input className="form-input" value={value} onChange={e=>onChange(e.target.value)}
-        placeholder="Buscar código o diagnóstico en español..." autoComplete="off"/>
-      {open&&(loading||results.length>0)&&(
+      <input className="form-input" value={value}
+        onChange={e=>{onChange(e.target.value);setOpen(true)}}
+        placeholder="Buscar código o diagnóstico CIE-10..." autoComplete="off"
+        onFocus={()=>value.length>=1&&setOpen(true)}
+      />
+      {open&&results.length>0&&(
         <div className="cie10-dropdown">
-          {loading&&<div style={{padding:'10px 14px',fontSize:12,color:'var(--text-muted)',display:'flex',alignItems:'center',gap:8}}>
-            <span className="loading-spinner" style={{borderTopColor:'var(--primary)',borderColor:'var(--border)',width:12,height:12}}/>
-            Buscando en CIE-10...
-          </div>}
-          {!loading&&results.map((r,i)=>(
+          {results.map((r,i)=>(
             <div key={i} className="cie10-option" onMouseDown={()=>{onSelect(r);setOpen(false)}}>
               <span className="cie10-code">{r.code}</span>
               <span className="cie10-name">{r.name}</span>
             </div>
           ))}
-          {!loading&&results.length>0&&(
-            <div style={{padding:'4px 12px',fontSize:10,color:'var(--text-muted)',borderTop:'1px solid var(--border-light)',background:'var(--surface-2)'}}>
-              {source==='api'?'📡 Fuente: CIE-10 OMS en español':'📋 Base de datos local en español'}
-            </div>
-          )}
+          <div style={{padding:'3px 12px',fontSize:10,color:'var(--text-muted)',background:'var(--surface-2)',borderTop:'1px solid var(--border-light)'}}>
+            📋 CIE-10 en español · {results.length} resultado(s)
+          </div>
         </div>
       )}
     </div>
