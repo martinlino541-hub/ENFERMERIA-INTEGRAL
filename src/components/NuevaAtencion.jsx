@@ -126,16 +126,65 @@ const EF_SECTIONS = [
   {key:'neuro',label:'13 Neurológico',items:[{key:'fuerza',label:'a. Fuerza'},{key:'sensibilidad',label:'b. Sensibilidad'},{key:'marcha',label:'c. Marcha'},{key:'reflejos',label:'d. Reflejos osteotendinosos'}]},
 ]
 
-function searchCIE10(q){if(!q||q.length<2)return[];const ql=q.toLowerCase();return CIE10_LIST.filter(c=>c.code.toLowerCase().includes(ql)||c.name.toLowerCase().includes(ql)).slice(0,10)}
 function searchFarmaco(q){if(!q||q.length<2)return[];const ql=q.toLowerCase();const r=[];FARMACOS.forEach(f=>{if(f.name.toLowerCase().includes(ql)){f.p.forEach(p=>{r.push({name:f.name,presentation:p,full:`${f.name} ${p}`})})}});return r.slice(0,12)}
 
-function Dropdown({items,onSelect,renderItem}){return(<div className="cie10-dropdown">{items.map((r,i)=>(<div key={i} className="cie10-option" onMouseDown={()=>onSelect(r)}>{renderItem(r)}</div>))}</div>)}
+function Dropdown({items,onSelect,renderItem,loading}){
+  return(
+    <div className="cie10-dropdown">
+      {loading&&<div style={{padding:'10px 14px',fontSize:12,color:'var(--text-muted)',display:'flex',alignItems:'center',gap:8}}><span className="loading-spinner" style={{borderTopColor:'var(--primary)',borderColor:'var(--border)',width:12,height:12}}/>Buscando...</div>}
+      {!loading&&items.map((r,i)=>(<div key={i} className="cie10-option" onMouseDown={()=>onSelect(r)}>{renderItem(r)}</div>))}
+    </div>
+  )
+}
 
 function CIE10Search({value,onChange,onSelect}){
-  const[open,setOpen]=useState(false);const[results,setResults]=useState([]);const ref=useRef()
-  useEffect(()=>{setResults(searchCIE10(value));setOpen(value.length>=2)},[value])
-  useEffect(()=>{const h=(e)=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false)};document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h)},[])
-  return(<div className="pos-relative" ref={ref}><input className="form-input" value={value} onChange={e=>onChange(e.target.value)} placeholder="Buscar diagnóstico CIE-10..." autoComplete="off"/>{open&&results.length>0&&<Dropdown items={results} onSelect={r=>{onSelect(r);setOpen(false)}} renderItem={r=><><span className="cie10-code">{r.code}</span><span className="cie10-name">{r.name}</span></>}/>}</div>)
+  const[open,setOpen]=useState(false)
+  const[results,setResults]=useState([])
+  const[loading,setLoading]=useState(false)
+  const ref=useRef()
+  const timerRef=useRef()
+
+  useEffect(()=>{
+    if(value.length<2){setResults([]);setOpen(false);return}
+    setOpen(true)
+    clearTimeout(timerRef.current)
+    timerRef.current=setTimeout(async()=>{
+      setLoading(true)
+      try{
+        // API oficial NIH/NLM — base completa CIE-10-CM (70,000+ códigos)
+        const url=`https://clinicaltables.nlm.nih.gov/api/icd10cm/v3/search?sf=code,name&terms=${encodeURIComponent(value)}&maxList=12`
+        const res=await fetch(url)
+        const data=await res.json()
+        // data[3] = array de [code, description]
+        if(data&&data[3]){
+          setResults(data[3].map(([code,name])=>({code,name})))
+        }
+      }catch(e){
+        // Fallback a lista local si falla la API
+        const ql=value.toLowerCase()
+        setResults(CIE10_LIST.filter(c=>c.code.toLowerCase().includes(ql)||c.name.toLowerCase().includes(ql)).slice(0,10))
+      }finally{setLoading(false)}
+    },350)
+    return()=>clearTimeout(timerRef.current)
+  },[value])
+
+  useEffect(()=>{
+    const h=(e)=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false)}
+    document.addEventListener('mousedown',h)
+    return()=>document.removeEventListener('mousedown',h)
+  },[])
+
+  return(
+    <div className="pos-relative" ref={ref}>
+      <input className="form-input" value={value} onChange={e=>onChange(e.target.value)}
+        placeholder="Buscar código o diagnóstico CIE-10..." autoComplete="off"/>
+      {open&&(loading||results.length>0)&&(
+        <Dropdown items={results} loading={loading}
+          onSelect={r=>{onSelect(r);setOpen(false)}}
+          renderItem={r=><><span className="cie10-code">{r.code}</span><span className="cie10-name">{r.name}</span></>}/>
+      )}
+    </div>
+  )
 }
 
 function FarmacoSearch({value,onChange,onSelect}){
