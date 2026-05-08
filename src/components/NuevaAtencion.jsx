@@ -296,44 +296,128 @@ function searchCIE10Local(q){
 
 function CIE10Search({value,onChange,onSelect}){
   const[open,setOpen]=useState(false)
+  const[customCodes,setCustomCodes]=useState([])
+  const[saving,setSaving]=useState(false)
+  const[savedMsg,setSavedMsg]=useState('')
+  const[showSaveForm,setShowSaveForm]=useState(false)
+  const[newCodigo,setNewCodigo]=useState('')
+  const[newNombre,setNewNombre]=useState('')
   const ref=useRef()
 
+  // Cargar códigos personalizados al montar
+  useEffect(()=>{
+    supabase.from('cie10_custom').select('*').order('created_at',{ascending:false}).then(({data})=>{
+      if(data) setCustomCodes(data.map(d=>({code:d.codigo,name:d.nombre,custom:true})))
+    })
+  },[])
+
+  // Buscar en lista local + personalizados
+  const allCodes = [...CIE10_ES_LOCAL, ...customCodes]
   const results = value.length >= 1
-    ? CIE10_ES_LOCAL.filter(c => {
-        const q = value.toLowerCase()
-        return c.code.toLowerCase().startsWith(q) ||
-               c.code.toLowerCase().includes(q) ||
+    ? allCodes.filter(c=>{
+        const q=value.toLowerCase()
+        return c.code.toLowerCase().startsWith(q)||
+               c.code.toLowerCase().includes(q)||
                c.name.toLowerCase().includes(q)
-      }).slice(0,12)
+      }).slice(0,14)
     : []
 
   useEffect(()=>{
-    setOpen(value.length>=1 && results.length>0)
-  },[value, results.length])
+    setOpen(value.length>=1)
+    if(value.length>=1){
+      setNewCodigo(value.toUpperCase())
+      setNewNombre('')
+    }
+  },[value])
 
   useEffect(()=>{
-    const h=(e)=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false)}
+    const h=(e)=>{if(ref.current&&!ref.current.contains(e.target)){setOpen(false);setShowSaveForm(false)}}
     document.addEventListener('mousedown',h)
     return()=>document.removeEventListener('mousedown',h)
   },[])
 
+  const handleGuardar=async()=>{
+    if(!newCodigo||!newNombre)return
+    setSaving(true)
+    try{
+      const{error}=await supabase.from('cie10_custom').upsert({codigo:newCodigo.toUpperCase(),nombre:newNombre},{onConflict:'codigo'})
+      if(!error){
+        const nuevo={code:newCodigo.toUpperCase(),name:newNombre,custom:true}
+        setCustomCodes(p=>[nuevo,...p.filter(c=>c.code!==nuevo.code)])
+        setSavedMsg(`✓ Guardado: ${newCodigo.toUpperCase()}`)
+        onSelect(nuevo)
+        setShowSaveForm(false)
+        setOpen(false)
+        setTimeout(()=>setSavedMsg(''),3000)
+      }
+    }catch(e){}
+    finally{setSaving(false)}
+  }
+
   return(
     <div className="pos-relative" ref={ref}>
       <input className="form-input" value={value}
-        onChange={e=>{onChange(e.target.value);setOpen(true)}}
+        onChange={e=>{onChange(e.target.value);setShowSaveForm(false)}}
         placeholder="Buscar código o diagnóstico CIE-10..." autoComplete="off"
         onFocus={()=>value.length>=1&&setOpen(true)}
       />
-      {open&&results.length>0&&(
-        <div className="cie10-dropdown">
+      {savedMsg&&<div style={{fontSize:11,color:'var(--accent)',marginTop:2,fontWeight:600}}>{savedMsg}</div>}
+      {open&&(
+        <div className="cie10-dropdown" style={{maxHeight:320,overflowY:'auto'}}>
+          {/* Resultados */}
           {results.map((r,i)=>(
-            <div key={i} className="cie10-option" onMouseDown={()=>{onSelect(r);setOpen(false)}}>
+            <div key={i} className="cie10-option" onMouseDown={()=>{onSelect(r);setOpen(false);setShowSaveForm(false)}}>
               <span className="cie10-code">{r.code}</span>
               <span className="cie10-name">{r.name}</span>
+              {r.custom&&<span style={{marginLeft:'auto',fontSize:10,background:'#F0FFF4',color:'#2F855A',padding:'1px 6px',borderRadius:8,fontWeight:700,flexShrink:0}}>Personalizado</span>}
             </div>
           ))}
-          <div style={{padding:'3px 12px',fontSize:10,color:'var(--text-muted)',background:'var(--surface-2)',borderTop:'1px solid var(--border-light)'}}>
-            📋 CIE-10 en español · {results.length} resultado(s)
+
+          {/* Separador + botón guardar */}
+          <div style={{borderTop:'1px solid var(--border-light)',background:'var(--surface-2)'}}>
+            {!showSaveForm?(
+              <button
+                onMouseDown={e=>{e.preventDefault();setShowSaveForm(true);setNewCodigo(value.toUpperCase());setNewNombre('')}}
+                style={{width:'100%',padding:'9px 14px',background:'none',border:'none',cursor:'pointer',fontSize:12,color:'var(--primary)',fontWeight:600,display:'flex',alignItems:'center',gap:8,fontFamily:'var(--font-body)',textAlign:'left'}}>
+                ➕ Guardar diagnóstico CIE-10 personalizado
+              </button>
+            ):(
+              <div style={{padding:'10px 12px',display:'flex',flexDirection:'column',gap:8}}>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--primary)',marginBottom:2}}>
+                  💾 Guardar nuevo diagnóstico CIE-10
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <input
+                    value={newCodigo}
+                    onChange={e=>setNewCodigo(e.target.value.toUpperCase())}
+                    placeholder="Código (ej: Z99.0)"
+                    style={{width:110,padding:'6px 8px',border:'1.5px solid var(--border)',borderRadius:6,fontSize:12,fontFamily:'var(--font-display)',fontWeight:700,outline:'none'}}
+                    onMouseDown={e=>e.stopPropagation()}
+                  />
+                  <input
+                    value={newNombre}
+                    onChange={e=>setNewNombre(e.target.value)}
+                    placeholder="Nombre del diagnóstico..."
+                    style={{flex:1,padding:'6px 8px',border:'1.5px solid var(--border)',borderRadius:6,fontSize:12,fontFamily:'var(--font-body)',outline:'none'}}
+                    onMouseDown={e=>e.stopPropagation()}
+                    onKeyDown={e=>e.key==='Enter'&&handleGuardar()}
+                  />
+                </div>
+                <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+                  <button
+                    onMouseDown={e=>{e.preventDefault();setShowSaveForm(false)}}
+                    style={{padding:'5px 12px',background:'none',border:'1px solid var(--border)',borderRadius:6,cursor:'pointer',fontSize:12,fontFamily:'var(--font-body)'}}>
+                    Cancelar
+                  </button>
+                  <button
+                    onMouseDown={e=>{e.preventDefault();handleGuardar()}}
+                    disabled={!newCodigo||!newNombre||saving}
+                    style={{padding:'5px 12px',background:'var(--primary)',color:'white',border:'none',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'var(--font-body)',opacity:(!newCodigo||!newNombre)?0.5:1}}>
+                    {saving?'Guardando...':'✓ Guardar'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
