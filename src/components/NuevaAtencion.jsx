@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { User, Calendar, Heart, AlertTriangle, Users, Baby, FileText, Activity, Clipboard, Plus, Trash2, Save, CheckCircle, Search, Clock, Eye } from 'lucide-react'
+import { User, Calendar, Heart, AlertTriangle, Users, Baby, FileText, Activity, Clipboard, Plus, Trash2, Save, CheckCircle, Search, Clock, Eye, FlaskConical, ImageIcon, ChevronDown } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 
 function Section({ icon: Icon, title, subtitle, color = 'var(--primary)', children }) {
@@ -474,6 +474,250 @@ function ExamenFisicoRegional({value,onChange}){
 const emptyDiag=()=>({id:Date.now()+Math.random(),codigo:'',nombre:'',tipo:'presuntivo'})
 const emptyTrat=()=>({id:Date.now()+Math.random(),medicamento:'',cantidad:'',posologia:''})
 
+/* ─── Exámenes predefinidos por categoría ─── */
+const EXAMS_LAB = [
+  'Biometría hemática (BH)','Química sanguínea','Glucosa en ayunas','Glucosa postprandial',
+  'HbA1c (Hemoglobina glicosilada)','Creatinina','BUN (Nitrógeno ureico)','Ácido úrico',
+  'Colesterol total','HDL colesterol','LDL colesterol','Triglicéridos','Perfil lipídico completo',
+  'TGO (AST)','TGP (ALT)','GGT','Fosfatasa alcalina','Bilirrubinas (total, directa, indirecta)',
+  'Proteínas totales','Albúmina','Perfil hepático completo',
+  'TSH','T3 libre','T4 libre','Perfil tiroideo completo',
+  'Hemoglobina','Hematocrito','VCM','HCM','Plaquetas','Leucocitos','Neutrófilos','Linfocitos',
+  'Tiempo de protrombina (TP)','Tiempo de tromboplastina (TTP)','INR',
+  'Sodio','Potasio','Cloro','Calcio','Fósforo','Magnesio','Electrolitos',
+  'PCR (Proteína C reactiva)','VSG (Velocidad de sedimentación)','Factor reumatoide',
+  'ANA (anticuerpos antinucleares)','Anti-DNA','ANCA',
+  'Hemocultivo','Urocultivo','Coprocultivo',
+  'Examen elemental de orina (EMO)','Sedimento urinario','Microalbuminuria',
+  'Coproparasitario','Coprocultivo','Sangre oculta en heces',
+  'Test de embarazo (beta-HCG)','FSH','LH','Estradiol','Progesterona','Testosterona',
+  'Vitamina D (25-OH)','Vitamina B12','Ácido fólico','Hierro sérico','Ferritina','TIBC',
+  'PSA (Antígeno prostático específico)','CA 125','CA 19-9','CEA','AFP',
+  'VDRL/RPR','VIH (ELISA)','Hepatitis B (HBsAg)','Hepatitis C (Anti-HVC)',
+  'Prueba COVID-19','Antígeno de influenza','Cultivo faríngeo',
+  'Amilasa','Lipasa','Troponina','CK-MB','BNP/NT-proBNP','Dímero D',
+  'Gasometría arterial','Lactato','Procalcitonina',
+]
+
+const EXAMS_IMG = [
+  'Radiografía de tórax (PA)','Radiografía de tórax (lateral)','Radiografía de columna cervical',
+  'Radiografía de columna lumbar','Radiografía de abdomen','Radiografía de pelvis',
+  'Radiografía de mano derecha','Radiografía de mano izquierda','Radiografía de rodilla',
+  'Radiografía de tobillo','Radiografía de pie','Radiografía de cadera',
+  'Radiografía de muñeca','Radiografía de hombro','Radiografía de codo',
+  'Ecografía abdominal','Ecografía pélvica','Ecografía renal','Ecografía tiroidea',
+  'Ecografía obstétrica','Ecografía de partes blandas','Ecografía doppler venoso',
+  'Ecografía doppler carotídeo','Ecografía cardíaca (ecocardiograma)',
+  'Tomografía computada (TC) de cráneo','TC de tórax','TC de abdomen y pelvis',
+  'TC de columna cervical','TC de columna lumbar','TC de senos paranasales',
+  'Resonancia magnética (RMN) de cerebro','RMN de columna cervical','RMN de columna lumbar',
+  'RMN de rodilla','RMN de hombro','RMN de cadera',
+  'Mamografía bilateral','Mamografía unilateral derecha','Mamografía unilateral izquierda',
+  'Densitometría ósea (DEXA)','Gammagrafía ósea','PET-CT',
+  'Electrocardiograma (ECG)','Holter de ritmo 24h','Monitoreo ambulatorio de PA (MAPA)',
+  'Prueba de esfuerzo (ergometría)','Espirometría','Endoscopia digestiva alta (EDA)',
+  'Colonoscopia','Sigmoidoscopia','Colposcopia','Cistoscopia',
+  'Electroencefalograma (EEG)','Electromiografía (EMG)','Velocidad de conducción nerviosa',
+  'Fondo de ojo','Campimetría','Audiometría','Impedanciometría',
+]
+
+const EXAMS_OTRO = [
+  'Biopsia de piel','Biopsia de tejido blando','PAAF (punción aspiración con aguja fina)',
+  'Citología cervical (Papanicolaou)','Colposcopia con biopsia',
+  'Test de alergia (prick test)','Prueba de tuberculina (PPD)',
+  'Glucometría capilar','Oximetría de pulso','Peak flow (flujo espiratorio máximo)',
+  'Presión intraocular (tonometría)','Agudeza visual','Test de Ishihara (visión de colores)',
+  'Prueba de esfuerzo cardiovascular','Test de marcha 6 minutos',
+  'Prueba de función hepática completa','Perfil reumatológico completo',
+  'Panel tiroideo completo','Panel hormonal femenino','Panel hormonal masculino',
+]
+
+const emptyExamen = (tipo='Laboratorio') => ({
+  id: Date.now()+Math.random(),
+  tipo, nombre_examen:'', resultado:'', valor:'', unidad:'',
+  rango_normal:'', interpretacion:'', fecha_examen:'', laboratorio:'', observacion:''
+})
+
+/* ─── Componente ExamenesSection ─── */
+function ExamenesSection({examenes, setExamenes}){
+  const [tab, setTab] = useState('Laboratorio')
+  const [showSuggest, setShowSuggest] = useState(null) // id del examen con dropdown abierto
+  const [suggest, setSuggest] = useState('')
+
+  const addExamen = () => setExamenes(e=>[...e,emptyExamen(tab)])
+  const removeExamen = (id) => setExamenes(e=>e.filter(x=>x.id!==id))
+  const setField = (id,k,v) => setExamenes(e=>e.map(x=>x.id===id?{...x,[k]:v}:x))
+
+  const examsByTab = examenes.filter(e=>e.tipo===tab)
+
+  const suggestList = tab==='Laboratorio' ? EXAMS_LAB : tab==='Imagenología' ? EXAMS_IMG : EXAMS_OTRO
+
+  const INTERP_STYLE = {
+    'Normal':     {bg:'#F0FFF4',color:'#2F855A',border:'#9AE6B4'},
+    'Anormal':    {bg:'#FFF5F5',color:'#C53030',border:'#FEB2B2'},
+    'Borderline': {bg:'#FFFFF0',color:'#744210',border:'#FAF089'},
+    '':           {bg:'var(--surface-2)',color:'var(--text-muted)',border:'var(--border)'},
+  }
+
+  return (
+    <div className="card">
+      <div className="card-header">
+        <div className="card-header-icon" style={{background:'#2C7A7B'}}><FlaskConical size={16}/></div>
+        <div>
+          <div className="card-header-title">Resultados de Exámenes</div>
+          <div className="card-header-sub">Laboratorio, imagenología y otros estudios</div>
+        </div>
+      </div>
+      <div className="card-body">
+
+        {/* Tabs tipo de examen */}
+        <div style={{display:'flex',gap:6,marginBottom:16,borderBottom:'2px solid var(--border-light)',paddingBottom:0}}>
+          {['Laboratorio','Imagenología','Otro'].map(t=>(
+            <button key={t} onClick={()=>setTab(t)} style={{
+              padding:'7px 16px',border:'none',background:'none',cursor:'pointer',
+              fontFamily:'var(--font-body)',fontSize:13,fontWeight:tab===t?700:400,
+              color:tab===t?'var(--primary)':'var(--text-muted)',
+              borderBottom:tab===t?'2px solid var(--primary)':'2px solid transparent',
+              marginBottom:-2,transition:'all 0.15s',display:'flex',alignItems:'center',gap:6
+            }}>
+              {t==='Laboratorio'?'🧪':t==='Imagenología'?'🩻':'📋'} {t}
+              {examenes.filter(e=>e.tipo===t&&e.nombre_examen).length>0&&(
+                <span style={{background:'var(--primary)',color:'white',fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:10}}>
+                  {examenes.filter(e=>e.tipo===t&&e.nombre_examen).length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Lista de exámenes del tab activo */}
+        <div className="section-stack">
+          {examsByTab.length===0&&(
+            <div style={{textAlign:'center',padding:'20px 0',color:'var(--text-muted)',fontSize:13}}>
+              No hay exámenes de {tab.toLowerCase()} agregados
+            </div>
+          )}
+
+          {examsByTab.map(ex=>(
+            <div key={ex.id} style={{border:'1.5px solid var(--border-light)',borderRadius:12,overflow:'hidden',background:'white'}}>
+              {/* Header del examen */}
+              <div style={{background:'var(--surface-2)',padding:'10px 14px',display:'flex',gap:10,alignItems:'center',borderBottom:'1px solid var(--border-light)'}}>
+
+                {/* Nombre del examen con sugerencias */}
+                <div className="pos-relative" style={{flex:2}}>
+                  <input className="form-input"
+                    value={ex.nombre_examen}
+                    onChange={e=>{setField(ex.id,'nombre_examen',e.target.value);setSuggest(e.target.value);setShowSuggest(ex.id)}}
+                    onFocus={()=>setShowSuggest(ex.id)}
+                    placeholder={`Nombre del examen de ${tab.toLowerCase()}...`}
+                    style={{fontWeight:600}}
+                  />
+                  {showSuggest===ex.id&&ex.nombre_examen.length>=1&&(
+                    <div className="cie10-dropdown" style={{maxHeight:200,zIndex:60}}>
+                      {suggestList.filter(s=>s.toLowerCase().includes(ex.nombre_examen.toLowerCase())).slice(0,10).map((s,i)=>(
+                        <div key={i} className="cie10-option"
+                          onMouseDown={()=>{setField(ex.id,'nombre_examen',s);setShowSuggest(null)}}>
+                          {s}
+                        </div>
+                      ))}
+                      {suggestList.filter(s=>s.toLowerCase().includes(ex.nombre_examen.toLowerCase())).length===0&&(
+                        <div style={{padding:'8px 12px',fontSize:12,color:'var(--text-muted)'}}>Sin sugerencias — escribe el nombre completo</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Fecha del examen */}
+                <div style={{flex:1}}>
+                  <input type="date" className="form-input" value={ex.fecha_examen}
+                    onChange={e=>setField(ex.id,'fecha_examen',e.target.value)}
+                    title="Fecha del examen"
+                  />
+                </div>
+
+                {/* Interpretación */}
+                <div style={{flex:1}}>
+                  <select className="form-select" value={ex.interpretacion}
+                    onChange={e=>setField(ex.id,'interpretacion',e.target.value)}
+                    style={{
+                      background: INTERP_STYLE[ex.interpretacion]?.bg,
+                      color: INTERP_STYLE[ex.interpretacion]?.color,
+                      border: `1.5px solid ${INTERP_STYLE[ex.interpretacion]?.border}`,
+                      fontWeight:600
+                    }}>
+                    <option value="">Interpretación</option>
+                    <option value="Normal">✅ Normal</option>
+                    <option value="Borderline">⚠️ Borderline</option>
+                    <option value="Anormal">❌ Anormal</option>
+                  </select>
+                </div>
+
+                <button className="btn-danger-ghost" onClick={()=>removeExamen(ex.id)}><Trash2 size={14}/></button>
+              </div>
+
+              {/* Cuerpo del examen */}
+              <div style={{padding:'12px 14px',display:'grid',gridTemplateColumns:'1fr 1fr 1fr 2fr',gap:10}}>
+                {tab==='Laboratorio'?(
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Valor / Resultado</label>
+                      <input className="form-input" value={ex.valor}
+                        onChange={e=>setField(ex.id,'valor',e.target.value)} placeholder="Ej: 120"/>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Unidad</label>
+                      <input className="form-input" value={ex.unidad}
+                        onChange={e=>setField(ex.id,'unidad',e.target.value)} placeholder="mg/dL, U/L..."/>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Rango normal</label>
+                      <input className="form-input" value={ex.rango_normal}
+                        onChange={e=>setField(ex.id,'rango_normal',e.target.value)} placeholder="70-100 mg/dL"/>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Observación / Nota</label>
+                      <input className="form-input" value={ex.observacion}
+                        onChange={e=>setField(ex.id,'observacion',e.target.value)} placeholder="Nota adicional..."/>
+                    </div>
+                  </>
+                ):(
+                  <>
+                    <div className="form-group col-span-2" style={{gridColumn:'span 2'}}>
+                      <label className="form-label">Resultado / Hallazgo</label>
+                      <input className="form-input" value={ex.resultado}
+                        onChange={e=>setField(ex.id,'resultado',e.target.value)}
+                        placeholder={tab==='Imagenología'?'Ej: Silueta cardíaca normal, campos pulmonares claros...':'Ej: Resultado positivo...'}/>
+                    </div>
+                    <div className="form-group" style={{gridColumn:'span 2'}}>
+                      <label className="form-label">Observación / Interpretación clínica</label>
+                      <input className="form-input" value={ex.observacion}
+                        onChange={e=>setField(ex.id,'observacion',e.target.value)} placeholder="Observaciones del médico..."/>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Laboratorio / Centro */}
+              <div style={{padding:'0 14px 12px',display:'flex',gap:10}}>
+                <div className="form-group" style={{flex:1}}>
+                  <label className="form-label">Laboratorio / Centro de imagen</label>
+                  <input className="form-input" value={ex.laboratorio}
+                    onChange={e=>setField(ex.id,'laboratorio',e.target.value)} placeholder="Nombre del laboratorio o centro..."/>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <button className="btn-add" onClick={addExamen}>
+            <Plus size={14}/>
+            Agregar examen de {tab.toLowerCase()}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function NuevaAtencion({onSaved}){
   const today=new Date().toISOString().split('T')[0]
   const[saving,setSaving]=useState(false)
@@ -489,6 +733,7 @@ export default function NuevaAtencion({onSaved}){
   const[examenFisico,setExamenFisico]=useState({})
   const[diagnosticos,setDiagnosticos]=useState([emptyDiag()])
   const[tratamientos,setTratamientos]=useState([emptyTrat()])
+  const[examenes,setExamenes]=useState([])
   const[observaciones,setObservaciones]=useState('')
   const[recomendaciones,setRecomendaciones]=useState('')
   const[seguimiento,setSeguimiento]=useState(false)
@@ -590,6 +835,7 @@ export default function NuevaAtencion({onSaved}){
       await supabase.from('examen_fisico').insert(efd)
       const ds=diagnosticos.filter(d=>d.codigo||d.nombre);if(ds.length)await supabase.from('diagnosticos').insert(ds.map(d=>({atencion_id:at.id,codigo_cie10:d.codigo,nombre_cie10:d.nombre,tipo:d.tipo})))
       const ts=tratamientos.filter(t=>t.medicamento);if(ts.length)await supabase.from('tratamientos').insert(ts.map(t=>({atencion_id:at.id,medicamento:t.medicamento,cantidad:t.cantidad,posologia:t.posologia})))
+      const exs=examenes.filter(e=>e.nombre_examen);if(exs.length)await supabase.from('examenes_resultados').insert(exs.map(e=>({atencion_id:at.id,tipo:e.tipo,nombre_examen:e.nombre_examen,resultado:e.resultado||null,valor:e.valor||null,unidad:e.unidad||null,rango_normal:e.rango_normal||null,interpretacion:e.interpretacion||null,fecha_examen:e.fecha_examen||null,laboratorio:e.laboratorio||null,observacion:e.observacion||null})))
       setAlert({type:'success',msg:`✓ Atención guardada para ${generales.nombres} ${generales.apellidos}.`})
       window.scrollTo({top:0,behavior:'smooth'});setTimeout(()=>onSaved(),1200)
     }catch(err){setAlert({type:'error',msg:`Error al guardar: ${err.message}`})}
@@ -710,6 +956,9 @@ export default function NuevaAtencion({onSaved}){
             <button className="btn-add" onClick={addDiag}><Plus size={14}/> Agregar diagnóstico</button>
           </div>
         </Section>
+
+        {/* ── RESULTADOS DE EXÁMENES ── */}
+        <ExamenesSection examenes={examenes} setExamenes={setExamenes} />
 
         <Section icon={Heart} title="Tratamiento" subtitle="Búsqueda de fármacos con presentaciones" color="#E53E3E">
           <div style={{marginBottom:8,display:'grid',gridTemplateColumns:'1fr 100px 1fr 36px',gap:8}}>
