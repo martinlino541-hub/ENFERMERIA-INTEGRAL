@@ -13,6 +13,8 @@ export default function Agenda() {
   const [citas, setCitas] = useState([])
   const [loading, setLoading] = useState(true)
   const [detalle, setDetalle] = useState(null)
+  const [confirmLimpiar, setConfirmLimpiar] = useState(false)
+  const [limpiando, setLimpiando] = useState(false)
 
   const fetchCitas = useCallback(async () => {
     setLoading(true)
@@ -71,6 +73,25 @@ export default function Agenda() {
     setDiaSeleccionado(null)
   }
 
+  const limpiarMes = async () => {
+    setLimpiando(true)
+    try {
+      const inicio = `${anio}-${String(mes + 1).padStart(2, '0')}-01`
+      const fin = new Date(anio, mes + 1, 0)
+      const finStr = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(fin.getDate()).padStart(2, '0')}`
+      // Elimina de lista_dia los del mes actual
+      await supabase.from('lista_dia')
+        .delete()
+        .gte('fecha', inicio)
+        .lte('fecha', finStr)
+      setCitas([])
+      setDiaSeleccionado(null)
+      setConfirmLimpiar(false)
+      fetchCitas()
+    } catch (e) { console.error(e) }
+    finally { setLimpiando(false) }
+  }
+
   const formatFecha = (f) => {
     if (!f) return '—'
     return new Date(f + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -96,6 +117,14 @@ export default function Agenda() {
           <span className="page-title-badge">Calendario</span>
         </div>
         <div className="page-subtitle">Visualiza atenciones y seguimientos programados por fecha</div>
+        <div style={{marginTop:10}}>
+          <button
+            className="btn btn-ghost"
+            onClick={() => setConfirmLimpiar(true)}
+            style={{fontSize:12, color:'var(--danger)', borderColor:'#FEB2B2', display:'flex', alignItems:'center', gap:6}}>
+            🗑️ Limpiar registros de agenda del mes
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -409,6 +438,41 @@ export default function Agenda() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmar limpiar */}
+      {confirmLimpiar && (
+        <div className="modal-overlay" onClick={() => setConfirmLimpiar(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title" style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                🗑️ Limpiar Registros de Agenda
+              </div>
+              <button onClick={() => setConfirmLimpiar(false)} className="btn btn-ghost" style={{ padding: 8 }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div style={{ background: 'var(--danger-soft)', border: '1px solid #FEB2B2', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                <p style={{ fontSize: 14, color: 'var(--danger)', fontWeight: 600, marginBottom: 6 }}>⚠️ Esta acción no se puede deshacer</p>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  Se eliminarán todos los registros de la <strong>Lista del Día</strong> del mes de <strong style={{textTransform:'capitalize'}}>{MESES_FULL[mes]} {anio}</strong>.
+                </p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+                  Nota: esto solo borra la lista de pacientes programados, no las historias clínicas ni atenciones médicas.
+                </p>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button className="btn btn-ghost" onClick={() => setConfirmLimpiar(false)}>Cancelar</button>
+                <button className="btn" style={{ background: 'var(--danger)', color: 'white' }}
+                  onClick={limpiarMes} disabled={limpiando}>
+                  {limpiando ? <span className="loading-spinner" /> : '🗑️'}
+                  {limpiando ? 'Limpiando...' : 'Sí, limpiar agenda'}
+                </button>
               </div>
             </div>
           </div>
