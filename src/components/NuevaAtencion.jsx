@@ -379,103 +379,175 @@ function ExamenFisicoRegional({value,onChange}){
   )
 }
 
-/* ══ RESULTADOS DE EXÁMENES — formato simplificado ══ */
-const emptyExamen=(tipo='Laboratorio')=>({id:Date.now()+Math.random(),tipo,nombre_examen:'',fecha_examen:'',observacion:''})
+/* ══ GRUPOS DE EXÁMENES — estructura fija con campos abiertos ══ */
+const GRUPOS_LAB = [
+  { key:'hemograma',     label:'Hemograma Completo',    emoji:'🩸' },
+  { key:'bioquimico',    label:'Bioquímico Sanguíneo',  emoji:'🧫' },
+  { key:'heces',         label:'Heces',                 emoji:'🟤' },
+  { key:'orina',         label:'Orina',                 emoji:'🟡' },
+  { key:'hormonales',    label:'Hormonales',            emoji:'⚗️' },
+  { key:'inmunologicos', label:'Inmunológicos',         emoji:'🛡️' },
+  { key:'microbiologicos',label:'Microbiológicos',      emoji:'🦠' },
+]
+const GRUPOS_IMG = [
+  { key:'radiografias',  label:'Radiografías',          emoji:'🫁' },
+  { key:'ecografias',    label:'Ecografías',            emoji:'📡' },
+  { key:'tomografias',   label:'Tomografías (TC)',      emoji:'🖥️' },
+  { key:'resonancias',   label:'Resonancias (RMN)',     emoji:'🧲' },
+  { key:'otros_img',     label:'Otros Imagenológicos',  emoji:'📷' },
+]
+const GRUPOS_OTRO = [
+  { key:'biopsias',      label:'Biopsias / Patología',  emoji:'🔬' },
+  { key:'cardio',        label:'Cardiológicos',          emoji:'❤️' },
+  { key:'respiratorio',  label:'Función Respiratoria',  emoji:'🌬️' },
+  { key:'oftalmologia',  label:'Oftalmología',          emoji:'👁️' },
+  { key:'otros_exam',    label:'Otros Exámenes',        emoji:'📋' },
+]
 
-function ExamenesSection({examenes,setExamenes}){
-  const[tab,setTab]=useState('Laboratorio')
-  const[showSuggest,setShowSuggest]=useState(null)
+const emptyGrupos = (grupos) => Object.fromEntries(grupos.map(g => [g.key, { fecha:'', resultado:'', observacion:'' }]))
 
-  const addExamen=()=>setExamenes(e=>[...e,emptyExamen(tab)])
-  const removeExamen=(id)=>setExamenes(e=>e.filter(x=>x.id!==id))
-  const setField=(id,k,v)=>setExamenes(e=>e.map(x=>x.id===id?{...x,[k]:v}:x))
+const GRUPOS_BY_TAB = { 'Laboratorio': GRUPOS_LAB, 'Imagenología': GRUPOS_IMG, 'Otro': GRUPOS_OTRO }
 
-  const examsByTab=examenes.filter(e=>e.tipo===tab)
-  const suggestList=tab==='Laboratorio'?EXAMS_LAB:tab==='Imagenología'?EXAMS_IMG:EXAMS_OTRO
+function GrupoField({ grupo, value, onChange }) {
+  const hasData = value.resultado || value.observacion || value.fecha
+  return (
+    <div style={{
+      border: `1.5px solid ${hasData ? 'var(--secondary)' : 'var(--border-light)'}`,
+      borderRadius: 12,
+      overflow: 'hidden',
+      background: hasData ? 'white' : 'var(--surface-2)',
+      transition: 'all 0.2s'
+    }}>
+      {/* Header del grupo */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '8px 14px',
+        background: hasData ? 'var(--primary)' : 'var(--surface-2)',
+        borderBottom: '1px solid var(--border-light)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 16 }}>{grupo.emoji}</span>
+          <span style={{
+            fontSize: 13, fontWeight: 700,
+            color: hasData ? 'white' : 'var(--text-secondary)'
+          }}>{grupo.label}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, color: hasData ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>
+            Fecha:
+          </span>
+          <input
+            type="date"
+            value={value.fecha}
+            onChange={e => onChange({ ...value, fecha: e.target.value })}
+            style={{
+              border: hasData ? '1px solid rgba(255,255,255,0.3)' : '1px solid var(--border)',
+              borderRadius: 6, padding: '3px 8px', fontSize: 12,
+              background: hasData ? 'rgba(255,255,255,0.15)' : 'white',
+              color: hasData ? 'white' : 'var(--text-primary)',
+              outline: 'none', fontFamily: 'var(--font-body)'
+            }}
+          />
+        </div>
+      </div>
+      {/* Dos columnas: Resultados | Observaciones */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+        <div style={{ padding: '10px 12px', borderRight: '1px solid var(--border-light)' }}>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 5 }}>
+            📊 Resultados
+          </label>
+          <textarea
+            value={value.resultado}
+            onChange={e => onChange({ ...value, resultado: e.target.value })}
+            placeholder={`Ingrese los resultados de ${grupo.label.toLowerCase()}...`}
+            style={{
+              width: '100%', minHeight: 85, resize: 'vertical',
+              border: '1px solid var(--border-light)', borderRadius: 6,
+              padding: '7px 10px', fontSize: 12, fontFamily: 'var(--font-body)',
+              lineHeight: 1.5, outline: 'none', background: 'white',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+        <div style={{ padding: '10px 12px' }}>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: 5 }}>
+            💬 Observaciones
+          </label>
+          <textarea
+            value={value.observacion}
+            onChange={e => onChange({ ...value, observacion: e.target.value })}
+            placeholder="Observaciones clínicas, interpretación..."
+            style={{
+              width: '100%', minHeight: 85, resize: 'vertical',
+              border: '1px solid var(--border-light)', borderRadius: 6,
+              padding: '7px 10px', fontSize: 12, fontFamily: 'var(--font-body)',
+              lineHeight: 1.5, outline: 'none', background: 'white',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
 
-  return(
+function ExamenesSection({ examGrupos, setExamGrupos }) {
+  const [tab, setTab] = useState('Laboratorio')
+
+  const grupos = GRUPOS_BY_TAB[tab]
+  const tabData = examGrupos[tab] || emptyGrupos(grupos)
+
+  const setGrupo = (key, val) => {
+    setExamGrupos(prev => ({
+      ...prev,
+      [tab]: { ...(prev[tab] || emptyGrupos(grupos)), [key]: val }
+    }))
+  }
+
+  const tieneData = (t) => {
+    const grupos = GRUPOS_BY_TAB[t]
+    const data = examGrupos[t] || {}
+    return grupos.some(g => data[g.key]?.resultado || data[g.key]?.observacion || data[g.key]?.fecha)
+  }
+
+  return (
     <div className="card">
       <div className="card-header">
-        <div className="card-header-icon" style={{background:'#2C7A7B'}}><FlaskConical size={16}/></div>
+        <div className="card-header-icon" style={{ background: '#2C7A7B' }}><FlaskConical size={16} /></div>
         <div>
           <div className="card-header-title">Resultados de Exámenes</div>
-          <div className="card-header-sub">Laboratorio, imagenología y otros estudios</div>
+          <div className="card-header-sub">Campos abiertos — complete solo los exámenes realizados</div>
         </div>
       </div>
       <div className="card-body">
         {/* Tabs */}
-        <div style={{display:'flex',gap:4,marginBottom:16,borderBottom:'2px solid var(--border-light)'}}>
-          {['Laboratorio','Imagenología','Otro'].map(t=>(
-            <button key={t} onClick={()=>setTab(t)} style={{
-              padding:'7px 16px',border:'none',background:'none',cursor:'pointer',
-              fontFamily:'var(--font-body)',fontSize:13,fontWeight:tab===t?700:400,
-              color:tab===t?'var(--primary)':'var(--text-muted)',
-              borderBottom:tab===t?'2px solid var(--primary)':'2px solid transparent',
-              marginBottom:-2,display:'flex',alignItems:'center',gap:6
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '2px solid var(--border-light)' }}>
+          {['Laboratorio', 'Imagenología', 'Otro'].map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              padding: '7px 16px', border: 'none', background: 'none', cursor: 'pointer',
+              fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: tab === t ? 700 : 400,
+              color: tab === t ? 'var(--primary)' : 'var(--text-muted)',
+              borderBottom: tab === t ? '2px solid var(--primary)' : '2px solid transparent',
+              marginBottom: -2, display: 'flex', alignItems: 'center', gap: 6
             }}>
-              {t==='Laboratorio'?'🧪':t==='Imagenología'?'🩻':'📋'} {t}
-              {examenes.filter(e=>e.tipo===t&&e.nombre_examen).length>0&&(
-                <span style={{background:'var(--primary)',color:'white',fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:10}}>
-                  {examenes.filter(e=>e.tipo===t&&e.nombre_examen).length}
-                </span>
+              {t === 'Laboratorio' ? '🧪' : t === 'Imagenología' ? '🩻' : '📋'} {t}
+              {tieneData(t) && (
+                <span style={{ width: 8, height: 8, background: 'var(--accent)', borderRadius: '50%', display: 'inline-block' }} />
               )}
             </button>
           ))}
         </div>
 
-        {/* Exámenes del tab */}
+        {/* Grupos del tab activo */}
         <div className="section-stack">
-          {examsByTab.length===0&&(
-            <div style={{textAlign:'center',padding:'16px 0',color:'var(--text-muted)',fontSize:13}}>
-              No hay exámenes de {tab.toLowerCase()} agregados
-            </div>
-          )}
-
-          {examsByTab.map(ex=>(
-            <div key={ex.id} style={{border:'1.5px solid var(--border-light)',borderRadius:10,overflow:'hidden'}}>
-              {/* Header: nombre + fecha + eliminar */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr 160px 36px',gap:10,padding:'10px 12px',background:'var(--surface-2)',borderBottom:'1px solid var(--border-light)',alignItems:'center'}}>
-                {/* Nombre con sugerencias */}
-                <div className="pos-relative">
-                  <input className="form-input" value={ex.nombre_examen}
-                    onChange={e=>{setField(ex.id,'nombre_examen',e.target.value);setShowSuggest(ex.id)}}
-                    onFocus={()=>setShowSuggest(ex.id)}
-                    placeholder={`Nombre del examen (${tab.toLowerCase()})...`}
-                    style={{fontWeight:600}}/>
-                  {showSuggest===ex.id&&ex.nombre_examen.length>=1&&(
-                    <div className="cie10-dropdown" style={{maxHeight:200,zIndex:60}}>
-                      {suggestList.filter(s=>s.toLowerCase().includes(ex.nombre_examen.toLowerCase())).slice(0,10).map((s,i)=>(
-                        <div key={i} className="cie10-option" onMouseDown={()=>{setField(ex.id,'nombre_examen',s);setShowSuggest(null)}}>{s}</div>
-                      ))}
-                      {suggestList.filter(s=>s.toLowerCase().includes(ex.nombre_examen.toLowerCase())).length===0&&(
-                        <div style={{padding:'8px 12px',fontSize:12,color:'var(--text-muted)'}}>Escribe el nombre completo del examen</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {/* Fecha */}
-                <div>
-                  <input type="date" className="form-input" value={ex.fecha_examen}
-                    onChange={e=>setField(ex.id,'fecha_examen',e.target.value)}
-                    title="Fecha en que se realizó el examen"/>
-                </div>
-                <button className="btn-danger-ghost" onClick={()=>removeExamen(ex.id)}><Trash2 size={14}/></button>
-              </div>
-              {/* Observaciones libres */}
-              <div style={{padding:'10px 12px'}}>
-                <label className="form-label" style={{marginBottom:6}}>Observaciones / Resultados</label>
-                <textarea className="form-textarea"
-                  value={ex.observacion||''}
-                  onChange={e=>setField(ex.id,'observacion',e.target.value)}
-                  placeholder="Escriba aquí los resultados, valores, hallazgos o cualquier observación del examen..."
-                  style={{minHeight:90,fontSize:13}}/>
-              </div>
-            </div>
+          {grupos.map(g => (
+            <GrupoField
+              key={g.key}
+              grupo={g}
+              value={tabData[g.key] || { fecha: '', resultado: '', observacion: '' }}
+              onChange={val => setGrupo(g.key, val)}
+            />
           ))}
-
-          <button className="btn-add" onClick={addExamen}>
-            <Plus size={14}/> Agregar examen de {tab.toLowerCase()}
-          </button>
         </div>
       </div>
     </div>
@@ -501,7 +573,7 @@ export default function NuevaAtencion({onSaved}){
   const[evolucion,setEvolucion]=useState('')
   const[examenFisico,setExamenFisico]=useState({})
   const[diagnosticos,setDiagnosticos]=useState([emptyDiag()])
-  const[examenes,setExamenes]=useState([])
+  const[examGrupos,setExamGrupos]=useState({})
   const[tratamientos,setTratamientos]=useState([emptyTrat()])
   const[observaciones,setObservaciones]=useState('')
   const[recomendaciones,setRecomendaciones]=useState('')
@@ -568,8 +640,18 @@ export default function NuevaAtencion({onSaved}){
       await supabase.from('examen_fisico').insert(efData)
       // Diagnósticos
       const ds=diagnosticos.filter(d=>d.codigo||d.nombre);if(ds.length)await supabase.from('diagnosticos').insert(ds.map(d=>({atencion_id:at.id,codigo_cie10:d.codigo,nombre_cie10:d.nombre,tipo:d.tipo})))
-      // Exámenes
-      const exs=examenes.filter(e=>e.nombre_examen);if(exs.length)await supabase.from('examenes_resultados').insert(exs.map(e=>({atencion_id:at.id,tipo:e.tipo,nombre_examen:e.nombre_examen,fecha_examen:e.fecha_examen||null,observacion:e.observacion||null})))
+      // Guardar exámenes por grupos
+      const exRows = []
+      Object.entries(GRUPOS_BY_TAB).forEach(([tipo, grupos]) => {
+        const tabData = examGrupos[tipo] || {}
+        grupos.forEach(g => {
+          const d = tabData[g.key]
+          if (d && (d.resultado || d.observacion || d.fecha)) {
+            exRows.push({ atencion_id: at.id, tipo, nombre_examen: g.label, grupo: g.key, fecha_examen: d.fecha || null, resultado: d.resultado || null, observacion: d.observacion || null })
+          }
+        })
+      })
+      if (exRows.length) await supabase.from('examenes_resultados').insert(exRows)
       // Tratamientos
       const ts=tratamientos.filter(t=>t.medicamento);if(ts.length)await supabase.from('tratamientos').insert(ts.map(t=>({atencion_id:at.id,medicamento:t.medicamento,cantidad:t.cantidad,posologia:t.posologia})))
       setAlert({type:'success',msg:`✓ Atención guardada para ${generales.nombres} ${generales.apellidos}.`})
@@ -695,7 +777,7 @@ export default function NuevaAtencion({onSaved}){
         </Section>
 
         {/* Resultados de Exámenes */}
-        <ExamenesSection examenes={examenes} setExamenes={setExamenes}/>
+        <ExamenesSection examGrupos={examGrupos} setExamGrupos={setExamGrupos}/>
 
         {/* Tratamiento */}
         <Section icon={Heart} title="Tratamiento" subtitle="Búsqueda de fármacos con presentaciones" color="#E53E3E">
