@@ -27,6 +27,7 @@ export default function RegistroPacientes() {
   const [selected, setSelected] = useState(null)
   const [selectedAnt, setSelectedAnt] = useState(null)
   const [selectedEF, setSelectedEF] = useState(null)
+  const [selectedExamenes, setSelectedExamenes] = useState([])
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -90,14 +91,17 @@ export default function RegistroPacientes() {
     setSelected(r)
     setSelectedAnt(null)
     setSelectedEF(null)
+    setSelectedExamenes([])
     setLoadingDetail(true)
     try {
-      const [antRes, efRes] = await Promise.all([
+      const [antRes, efRes, exRes] = await Promise.all([
         supabase.from('antecedentes').select('*').eq('paciente_id', r.pacientes?.id).single(),
         supabase.from('examen_fisico').select('*').eq('atencion_id', r.id).single(),
+        supabase.from('examenes_resultados').select('*').eq('atencion_id', r.id).order('tipo'),
       ])
       if (antRes.data) setSelectedAnt(antRes.data)
       if (efRes.data) setSelectedEF(efRes.data)
+      if (exRes.data) setSelectedExamenes(exRes.data)
     } catch (e) { console.error(e) }
     finally { setLoadingDetail(false) }
   }
@@ -274,7 +278,7 @@ export default function RegistroPacientes() {
                   Cargando información completa...
                 </div>
               ) : (
-                <DetailView r={selected} ant={selectedAnt} ef={selectedEF} formatDate={formatDate}/>
+                <DetailView r={selected} ant={selectedAnt} ef={selectedEF} examenes={selectedExamenes} formatDate={formatDate}/>
               )}
             </div>
           </div>
@@ -315,7 +319,7 @@ export default function RegistroPacientes() {
 }
 
 /* ── Detail View con tabs ── */
-function DetailView({ r, ant, ef, formatDate }) {
+function DetailView({ r, ant, ef, examenes, formatDate }) {
   const [tab, setTab] = useState('datos')
   const p = r.pacientes || {}
 
@@ -325,7 +329,6 @@ function DetailView({ r, ant, ef, formatDate }) {
       <span style={{fontSize:13,color:'var(--text-primary)'}}>{value||'—'}</span>
     </div>
   )
-
   const Sec = ({ title, children }) => (
     <div style={{marginBottom:20}}>
       <div style={{fontFamily:'var(--font-display)',fontWeight:700,color:'var(--primary)',fontSize:13,marginBottom:10,paddingBottom:5,borderBottom:'2px solid var(--accent)',display:'inline-block'}}>{title}</div>
@@ -333,29 +336,36 @@ function DetailView({ r, ant, ef, formatDate }) {
     </div>
   )
 
+  const hallazgos = ef ? EF_SECTIONS.flatMap(sec =>
+    sec.items.filter(item => ef[`${sec.key}_${item.key}`]).map(item => ({
+      seccion: sec.label, item: item.label, obs: ef[`${sec.key}_${item.key}_obs`] || ''
+    }))
+  ) : []
+
+  const examLab = (examenes||[]).filter(e=>e.tipo==='Laboratorio')
+  const examImg = (examenes||[]).filter(e=>e.tipo==='Imagenología')
+  const examOtro = (examenes||[]).filter(e=>e.tipo==='Otro')
+
+  const INTERP = {
+    'Normal':     {bg:'#F0FFF4',color:'#2F855A'},
+    'Anormal':    {bg:'#FFF5F5',color:'#C53030'},
+    'Borderline': {bg:'#FFFFF0',color:'#744210'},
+  }
+
   const tabs = [
     { id:'datos', label:'👤 Datos y Signos' },
     { id:'antecedentes', label:'📋 Antecedentes' },
     { id:'examen', label:'🔬 Examen Físico' },
+    { id:'examenes_res', label:`🧪 Exámenes${(examenes||[]).length>0?` (${(examenes||[]).length})`:''}` },
     { id:'clinica', label:'🩺 Clínica y Tratamiento' },
   ]
 
-  // Hallazgos del examen físico
-  const hallazgos = ef ? EF_SECTIONS.flatMap(sec =>
-    sec.items.filter(item => ef[`${sec.key}_${item.key}`]).map(item => ({
-      seccion: sec.label,
-      item: item.label,
-      obs: ef[`${sec.key}_${item.key}_obs`] || ''
-    }))
-  ) : []
-
   return (
     <div>
-      {/* Tabs */}
-      <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:'2px solid var(--border-light)',paddingBottom:0}}>
+      <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:'2px solid var(--border-light)',paddingBottom:0,flexWrap:'wrap'}}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
-            padding:'8px 16px',border:'none',background:'none',cursor:'pointer',
+            padding:'8px 14px',border:'none',background:'none',cursor:'pointer',
             fontFamily:'var(--font-body)',fontSize:13,fontWeight:tab===t.id?700:400,
             color:tab===t.id?'var(--primary)':'var(--text-muted)',
             borderBottom:tab===t.id?'2px solid var(--primary)':'2px solid transparent',
@@ -364,7 +374,6 @@ function DetailView({ r, ant, ef, formatDate }) {
         ))}
       </div>
 
-      {/* Tab: Datos y Signos */}
       {tab==='datos' && (
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}>
           <Sec title="👤 Datos del Paciente">
@@ -372,12 +381,9 @@ function DetailView({ r, ant, ef, formatDate }) {
             <Row label="Cédula" value={p.cedula}/>
             <Row label="Fecha nacimiento" value={p.fecha_nacimiento?new Date(p.fecha_nacimiento+'T00:00:00').toLocaleDateString('es-EC'):null}/>
             <Row label="Edad" value={p.edad?`${p.edad} años`:null}/>
-            <Row label="Sexo" value={p.sexo}/>
-            <Row label="Estado civil" value={p.estado_civil}/>
-            <Row label="Grupo sanguíneo" value={p.grupo_sanguineo}/>
-            <Row label="Teléfono" value={p.telefono}/>
-            <Row label="Correo" value={p.correo}/>
-            <Row label="Dirección" value={p.direccion}/>
+            <Row label="Sexo" value={p.sexo}/><Row label="Estado civil" value={p.estado_civil}/>
+            <Row label="Grupo sanguíneo" value={p.grupo_sanguineo}/><Row label="Teléfono" value={p.telefono}/>
+            <Row label="Correo" value={p.correo}/><Row label="Dirección" value={p.direccion}/>
             <Row label="Ocupación" value={p.ocupacion}/>
           </Sec>
           <Sec title="🔬 Signos Vitales">
@@ -393,7 +399,6 @@ function DetailView({ r, ant, ef, formatDate }) {
         </div>
       )}
 
-      {/* Tab: Antecedentes */}
       {tab==='antecedentes' && (
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}>
           <div>
@@ -406,48 +411,42 @@ function DetailView({ r, ant, ef, formatDate }) {
               <p style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{ant?.patologicos_familiares||'—'}</p>
             </Sec>
           </div>
-          <div>
-            <Sec title="👶 Antecedentes Ginecobstétricos">
-              {ant?.gestas!=null ? (
-                <>
-                  <Row label="Gestas" value={ant?.gestas?.toString()}/>
-                  <Row label="Partos vaginales" value={ant?.partos_vaginales?.toString()}/>
-                  <Row label="Cesáreas" value={ant?.cesareas?.toString()}/>
-                  <Row label="Abortos" value={ant?.abortos?.toString()}/>
-                  <Row label="Método planificación" value={ant?.metodo_planificacion}/>
-                </>
-              ) : <p style={{fontSize:13,color:'var(--text-muted)'}}>No aplica o no registrado</p>}
-            </Sec>
-          </div>
+          <Sec title="👶 Antecedentes Ginecobstétricos">
+            {ant?.gestas!=null?(<>
+              <Row label="Gestas" value={ant?.gestas?.toString()}/>
+              <Row label="Partos vaginales" value={ant?.partos_vaginales?.toString()}/>
+              <Row label="Cesáreas" value={ant?.cesareas?.toString()}/>
+              <Row label="Abortos" value={ant?.abortos?.toString()}/>
+              <Row label="Método planificación" value={ant?.metodo_planificacion}/>
+            </>):<p style={{fontSize:13,color:'var(--text-muted)'}}>No aplica o no registrado</p>}
+          </Sec>
         </div>
       )}
 
-      {/* Tab: Examen Físico */}
       {tab==='examen' && (
         <div>
-          {hallazgos.length === 0 ? (
+          {hallazgos.length===0?(
             <div style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
               <div style={{fontSize:32,marginBottom:10}}>✅</div>
-              <div style={{fontFamily:'var(--font-display)',fontSize:15,fontWeight:600}}>Sin hallazgos registrados</div>
-              <div style={{fontSize:13,marginTop:4}}>Todos los sistemas examinados dentro de la normalidad</div>
+              <div style={{fontFamily:'var(--font-display)',fontSize:15,fontWeight:600}}>Sin hallazgos — Examen físico normal</div>
             </div>
-          ) : (
+          ):(
             <div>
               <div style={{padding:'8px 14px',background:'var(--accent-soft)',borderRadius:8,marginBottom:16,fontSize:13,color:'var(--accent)',fontWeight:600,border:'1px solid rgba(0,201,167,0.2)'}}>
-                ⚠️ {hallazgos.length} hallazgo(s) registrado(s) en el examen físico
+                ⚠️ {hallazgos.length} hallazgo(s) registrado(s)
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:10}}>
-                {hallazgos.map((h,i) => (
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>
+                {hallazgos.map((h,i)=>(
                   <div key={i} style={{border:'1.5px solid var(--border-light)',borderRadius:10,overflow:'hidden'}}>
                     <div style={{background:'var(--primary)',color:'white',padding:'5px 10px',fontSize:11,fontWeight:700}}>{h.seccion}</div>
                     <div style={{padding:'8px 12px'}}>
                       <div style={{fontSize:13,fontWeight:600,color:'var(--text-primary)',marginBottom:4}}>✗ {h.item}</div>
-                      {h.obs && <div style={{fontSize:12,color:'var(--text-secondary)',fontStyle:'italic'}}>"{h.obs}"</div>}
+                      {h.obs&&<div style={{fontSize:12,color:'var(--text-secondary)',fontStyle:'italic'}}>"{h.obs}"</div>}
                     </div>
                   </div>
                 ))}
               </div>
-              {ef?.observaciones_generales && (
+              {ef?.observaciones_generales&&(
                 <div style={{marginTop:16,padding:12,background:'var(--surface-2)',borderRadius:10,border:'1px solid var(--border-light)'}}>
                   <div style={{fontSize:12,fontWeight:700,color:'var(--text-muted)',marginBottom:4,textTransform:'uppercase'}}>Observaciones generales</div>
                   <p style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{ef.observaciones_generales}</p>
@@ -458,43 +457,85 @@ function DetailView({ r, ant, ef, formatDate }) {
         </div>
       )}
 
-      {/* Tab: Clínica y Tratamiento */}
+      {tab==='examenes_res' && (
+        <div>
+          {(examenes||[]).length===0?(
+            <div style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
+              <div style={{fontSize:36,marginBottom:12}}>🧪</div>
+              <div style={{fontFamily:'var(--font-display)',fontSize:15,fontWeight:600}}>Sin exámenes registrados en esta atención</div>
+            </div>
+          ):(
+            <div className="section-stack">
+              {[{tipo:'Laboratorio',emoji:'🧪',data:examLab},{tipo:'Imagenología',emoji:'🩻',data:examImg},{tipo:'Otro',emoji:'📋',data:examOtro}]
+                .filter(g=>g.data.length>0)
+                .map(g=>(
+                  <div key={g.tipo}>
+                    <div style={{fontFamily:'var(--font-display)',fontWeight:700,fontSize:14,color:'var(--primary)',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
+                      {g.emoji} {g.tipo}
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                      {g.data.map((ex,i)=>{
+                        const interp = INTERP[ex.interpretacion]
+                        return(
+                          <div key={i} style={{border:'1.5px solid var(--border-light)',borderRadius:10,overflow:'hidden'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 14px',background:'var(--surface-2)',borderBottom:'1px solid var(--border-light)'}}>
+                              <div style={{fontWeight:700,fontSize:14}}>{ex.nombre_examen}</div>
+                              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                                {ex.fecha_examen&&<span style={{fontSize:12,color:'var(--text-muted)'}}>📅 {formatDate(ex.fecha_examen)}</span>}
+                                {interp&&<span style={{background:interp.bg,color:interp.color,fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:12}}>
+                                  {ex.interpretacion==='Normal'?'✅':ex.interpretacion==='Anormal'?'❌':'⚠️'} {ex.interpretacion}
+                                </span>}
+                              </div>
+                            </div>
+                            <div style={{padding:'10px 14px',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12}}>
+                              {ex.valor&&<div><div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:2}}>Valor</div><div style={{fontSize:15,fontWeight:800,fontFamily:'var(--font-display)',color:'var(--primary)'}}>{ex.valor} <span style={{fontSize:12,fontWeight:400,color:'var(--text-muted)'}}>{ex.unidad}</span></div></div>}
+                              {ex.rango_normal&&<div><div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:2}}>Rango normal</div><div style={{fontSize:13}}>{ex.rango_normal}</div></div>}
+                              {ex.resultado&&<div style={{gridColumn:'span 2'}}><div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:2}}>Resultado / Hallazgo</div><div style={{fontSize:13,lineHeight:1.5}}>{ex.resultado}</div></div>}
+                              {ex.observacion&&<div style={{gridColumn:'span 2'}}><div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:2}}>Observación</div><div style={{fontSize:13,color:'var(--text-secondary)',fontStyle:'italic'}}>{ex.observacion}</div></div>}
+                              {ex.laboratorio&&<div><div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:2}}>Laboratorio</div><div style={{fontSize:12,color:'var(--text-secondary)'}}>{ex.laboratorio}</div></div>}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {tab==='clinica' && (
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}>
           <div>
-            <Sec title="📋 Motivo de Consulta">
-              <p style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{r.motivo_consulta||'—'}</p>
-            </Sec>
-            <Sec title="🩺 Evolución">
-              <p style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{r.evolucion||'—'}</p>
-            </Sec>
+            <Sec title="📋 Motivo de Consulta"><p style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{r.motivo_consulta||'—'}</p></Sec>
+            <Sec title="🩺 Evolución"><p style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{r.evolucion||'—'}</p></Sec>
+            {r.observaciones&&<Sec title="📝 Observaciones"><p style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{r.observaciones}</p></Sec>}
+            {r.recomendaciones&&<Sec title="💡 Recomendaciones"><p style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{r.recomendaciones}</p></Sec>}
             <Sec title="🏷 Diagnósticos CIE-10">
-              {(r.diagnosticos||[]).length ? r.diagnosticos.map(d => (
+              {(r.diagnosticos||[]).length?r.diagnosticos.map(d=>(
                 <div key={d.id} style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:8}}>
                   <span style={{fontFamily:'var(--font-display)',fontWeight:700,color:'var(--primary)',fontSize:14,minWidth:56}}>{d.codigo_cie10}</span>
-                  <div>
-                    <div style={{fontSize:13}}>{d.nombre_cie10}</div>
-                    <span className={`table-badge ${d.tipo==='definitivo'?'badge-def':'badge-pre'}`} style={{marginTop:3}}>{d.tipo}</span>
-                  </div>
+                  <div><div style={{fontSize:13}}>{d.nombre_cie10}</div><span className={`table-badge ${d.tipo==='definitivo'?'badge-def':'badge-pre'}`} style={{marginTop:3}}>{d.tipo}</span></div>
                 </div>
-              )) : <p style={{fontSize:13,color:'var(--text-muted)'}}>Sin diagnósticos registrados</p>}
+              )):<p style={{fontSize:13,color:'var(--text-muted)'}}>Sin diagnósticos registrados</p>}
             </Sec>
           </div>
           <div>
             <Sec title="💊 Tratamiento">
-              {(r.tratamientos||[]).length ? (
+              {(r.tratamientos||[]).length?(
                 <table style={{width:'100%',fontSize:12}}>
                   <thead><tr>{['Medicamento','Cantidad','Posología'].map(h=>(<th key={h} style={{textAlign:'left',padding:'4px 8px',color:'var(--text-muted)',fontWeight:700,fontSize:11,textTransform:'uppercase',borderBottom:'1px solid var(--border-light)'}}>{h}</th>))}</tr></thead>
                   <tbody>{r.tratamientos.map(t=>(<tr key={t.id}><td style={{padding:'6px 8px',fontWeight:600}}>{t.medicamento}</td><td style={{padding:'6px 8px',color:'var(--text-secondary)'}}>{t.cantidad}</td><td style={{padding:'6px 8px',color:'var(--text-secondary)'}}>{t.posologia}</td></tr>))}</tbody>
                 </table>
-              ) : <p style={{fontSize:13,color:'var(--text-muted)'}}>Sin tratamiento registrado</p>}
+              ):<p style={{fontSize:13,color:'var(--text-muted)'}}>Sin tratamiento registrado</p>}
             </Sec>
-            {r.requiere_seguimiento && (
+            {r.requiere_seguimiento&&(
               <div style={{padding:14,background:'var(--accent-soft)',borderRadius:12,border:'1px solid rgba(0,201,167,0.2)',marginTop:12}}>
                 <div style={{fontWeight:700,color:'var(--accent)',fontSize:14,marginBottom:6}}>📅 Próxima consulta programada</div>
                 <div style={{fontSize:15,fontWeight:700,color:'var(--primary)'}}>
                   {formatDate(r.proxima_consulta)}
-                  {r.hora_proxima_consulta && <span style={{marginLeft:10,color:'var(--secondary)'}}>🕐 {r.hora_proxima_consulta.substring(0,5)}</span>}
+                  {r.hora_proxima_consulta&&<span style={{marginLeft:10,color:'var(--secondary)'}}>🕐 {r.hora_proxima_consulta.substring(0,5)}</span>}
                 </div>
               </div>
             )}
