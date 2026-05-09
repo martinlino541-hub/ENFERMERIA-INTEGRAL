@@ -3,6 +3,7 @@ import { Calendar, ChevronLeft, ChevronRight, Clock, User, Phone, Briefcase, X, 
 import { supabase } from '../supabaseClient'
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const MESES_FULL = MESES
 const DIAS_SEMANA = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
 
 export default function Agenda() {
@@ -18,24 +19,48 @@ export default function Agenda() {
 
   const fetchCitas = useCallback(async () => {
     setLoading(true)
-    const inicio = `${anio}-${String(mes + 1).padStart(2, '0')}-01`
-    const fin = new Date(anio, mes + 1, 0)
-    const finStr = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(fin.getDate()).padStart(2, '0')}`
+    try {
+      const inicio = `${anio}-${String(mes + 1).padStart(2, '0')}-01`
+      const fin = new Date(anio, mes + 1, 0)
+      const finStr = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(fin.getDate()).padStart(2, '0')}`
 
-    const { data, error } = await supabase
-      .from('atenciones')
-      .select(`
-        id, fecha_atencion, motivo_consulta, proxima_consulta, hora_proxima_consulta,
-        requiere_seguimiento, estado_consciencia,
-        pacientes ( id, nombres, apellidos, cedula, telefono, edad, sexo, ocupacion ),
-        diagnosticos ( codigo_cie10, nombre_cie10, tipo )
-      `)
-      .or(`fecha_atencion.gte.${inicio},proxima_consulta.gte.${inicio}`)
-      .or(`fecha_atencion.lte.${finStr},proxima_consulta.lte.${finStr}`)
-      .order('fecha_atencion', { ascending: true })
+      // Buscar atenciones del mes
+      const { data: atData } = await supabase
+        .from('atenciones')
+        .select(`
+          id, fecha_atencion, motivo_consulta, proxima_consulta, hora_proxima_consulta,
+          requiere_seguimiento,
+          pacientes ( id, nombres, apellidos, cedula, telefono, edad, sexo, ocupacion ),
+          diagnosticos ( codigo_cie10, nombre_cie10, tipo )
+        `)
+        .gte('fecha_atencion', inicio)
+        .lte('fecha_atencion', finStr)
+        .order('fecha_atencion', { ascending: true })
 
-    if (!error) setCitas(data || [])
-    setLoading(false)
+      // Buscar seguimientos del mes
+      const { data: segData } = await supabase
+        .from('atenciones')
+        .select(`
+          id, fecha_atencion, motivo_consulta, proxima_consulta, hora_proxima_consulta,
+          requiere_seguimiento,
+          pacientes ( id, nombres, apellidos, cedula, telefono, edad, sexo, ocupacion ),
+          diagnosticos ( codigo_cie10, nombre_cie10, tipo )
+        `)
+        .gte('proxima_consulta', inicio)
+        .lte('proxima_consulta', finStr)
+        .eq('requiere_seguimiento', true)
+        .order('proxima_consulta', { ascending: true })
+
+      // Combinar y deduplicar por id
+      const todos = [...(atData || []), ...(segData || [])]
+      const unique = Object.values(Object.fromEntries(todos.map(a => [a.id, a])))
+      setCitas(unique)
+    } catch (e) {
+      console.error('Error fetchCitas:', e)
+      setCitas([])
+    } finally {
+      setLoading(false)
+    }
   }, [mes, anio])
 
   useEffect(() => { fetchCitas() }, [fetchCitas])
@@ -80,14 +105,14 @@ export default function Agenda() {
       const ultimoDia = new Date(anio, mes + 1, 0).getDate()
       const finStr = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`
 
-      // Limpiar proxima_consulta de atenciones que caen en este mes
+      // Limpiar seguimientos del mes en atenciones
       await supabase
         .from('atenciones')
-        .update({ proxima_consulta: null, hora_proxima_consulta: null, requiere_seguimiento: false })
+        .update({ proxima_consulta: null, requiere_seguimiento: false })
         .gte('proxima_consulta', inicio)
         .lte('proxima_consulta', finStr)
 
-      // También limpiar lista_dia del mes
+      // Limpiar lista_dia del mes
       await supabase
         .from('lista_dia')
         .delete()
@@ -96,9 +121,10 @@ export default function Agenda() {
 
       setConfirmLimpiar(false)
       setDiaSeleccionado(null)
-      await fetchCitas()
+      setCitas([])
+      fetchCitas()
     } catch (e) {
-      console.error('Error al limpiar:', e)
+      console.error('Error limpiarMes:', e)
       setConfirmLimpiar(false)
     } finally {
       setLimpiando(false)
