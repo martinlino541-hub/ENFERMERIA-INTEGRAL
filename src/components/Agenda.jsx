@@ -77,19 +77,32 @@ export default function Agenda() {
     setLimpiando(true)
     try {
       const inicio = `${anio}-${String(mes + 1).padStart(2, '0')}-01`
-      const fin = new Date(anio, mes + 1, 0)
-      const finStr = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(fin.getDate()).padStart(2, '0')}`
-      // Elimina de lista_dia los del mes actual
-      await supabase.from('lista_dia')
+      const ultimoDia = new Date(anio, mes + 1, 0).getDate()
+      const finStr = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`
+
+      // Limpiar proxima_consulta de atenciones que caen en este mes
+      await supabase
+        .from('atenciones')
+        .update({ proxima_consulta: null, hora_proxima_consulta: null, requiere_seguimiento: false })
+        .gte('proxima_consulta', inicio)
+        .lte('proxima_consulta', finStr)
+
+      // También limpiar lista_dia del mes
+      await supabase
+        .from('lista_dia')
         .delete()
         .gte('fecha', inicio)
         .lte('fecha', finStr)
-      setCitas([])
-      setDiaSeleccionado(null)
+
       setConfirmLimpiar(false)
-      fetchCitas()
-    } catch (e) { console.error(e) }
-    finally { setLimpiando(false) }
+      setDiaSeleccionado(null)
+      await fetchCitas()
+    } catch (e) {
+      console.error('Error al limpiar:', e)
+      setConfirmLimpiar(false)
+    } finally {
+      setLimpiando(false)
+    }
   }
 
   const formatFecha = (f) => {
