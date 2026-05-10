@@ -1,540 +1,872 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Calendar, ChevronLeft, ChevronRight, Clock, User, Phone, Briefcase, X, Eye } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { User, Calendar, Heart, AlertTriangle, Users, Baby, FileText, Activity,
+  Clipboard, Plus, Trash2, Save, CheckCircle, Search, Clock, Eye, FlaskConical } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 
-const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-const MESES_FULL = MESES
-const DIAS_SEMANA = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+/* ══ SECTION COMPONENT ══ */
+function Section({ icon: Icon, title, subtitle, color = 'var(--primary)', children }) {
+  return (
+    <div className="card">
+      <div className="card-header">
+        <div className="card-header-icon" style={{ background: color }}><Icon size={16} /></div>
+        <div>
+          <div className="card-header-title">{title}</div>
+          {subtitle && <div className="card-header-sub">{subtitle}</div>}
+        </div>
+      </div>
+      <div className="card-body">{children}</div>
+    </div>
+  )
+}
 
-export default function Agenda() {
-  const hoy = new Date()
-  const [mes, setMes] = useState(hoy.getMonth())
-  const [anio, setAnio] = useState(hoy.getFullYear())
-  const [diaSeleccionado, setDiaSeleccionado] = useState(null)
-  const [citas, setCitas] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [detalle, setDetalle] = useState(null)
-  const [confirmLimpiar, setConfirmLimpiar] = useState(false)
-  const [limpiando, setLimpiando] = useState(false)
+/* ══ CIE-10 LISTA LOCAL EN ESPAÑOL ══ */
+const CIE10_ES_LOCAL = [
+  {code:'A09',name:'Diarrea y gastroenteritis de presunto origen infeccioso'},{code:'A15.0',name:'Tuberculosis del pulmón'},
+  {code:'A36.0',name:'Difteria faríngea'},{code:'A41.9',name:'Septicemia, no especificada'},
+  {code:'A46',name:'Erisipela'},{code:'B00.1',name:'Herpes viral de piel y mucosas'},
+  {code:'B01.9',name:'Varicela sin complicaciones'},{code:'B02.9',name:'Herpes zoster sin complicaciones'},
+  {code:'B34.9',name:'Infección viral, no especificada'},{code:'B37.0',name:'Estomatitis candidiásica'},
+  {code:'B37.3',name:'Candidiasis de la vulva y de la vagina'},{code:'C50.9',name:'Tumor maligno de la mama, parte no especificada'},
+  {code:'C53.9',name:'Tumor maligno del cuello del útero'},{code:'C61',name:'Tumor maligno de la próstata'},
+  {code:'D50.9',name:'Anemia por deficiencia de hierro, no especificada'},{code:'D64.9',name:'Anemia, no especificada'},
+  {code:'E03.9',name:'Hipotiroidismo, no especificado'},{code:'E05.0',name:'Tirotoxicosis con bocio difuso'},
+  {code:'E05.9',name:'Tirotoxicosis, no especificada'},{code:'E06.3',name:'Tiroiditis autoinmune'},
+  {code:'E10.9',name:'Diabetes mellitus tipo 1 sin complicaciones'},{code:'E11.9',name:'Diabetes mellitus tipo 2 sin complicaciones'},
+  {code:'E11.65',name:'Diabetes mellitus tipo 2 con hiperglucemia'},{code:'E14.9',name:'Diabetes mellitus no especificada sin complicaciones'},
+  {code:'E46',name:'Desnutrición proteicocalórica, no especificada'},{code:'E55.9',name:'Deficiencia de vitamina D, no especificada'},
+  {code:'E66.9',name:'Obesidad, no especificada'},{code:'E78.0',name:'Hipercolesterolemia pura'},
+  {code:'E78.1',name:'Hipertrigliceridemia pura'},{code:'E78.5',name:'Hiperlipidemia, no especificada'},
+  {code:'F10.1',name:'Trastornos mentales debidos al uso del alcohol'},{code:'F32.0',name:'Episodio depresivo leve'},
+  {code:'F32.1',name:'Episodio depresivo moderado'},{code:'F32.9',name:'Episodio depresivo, no especificado'},
+  {code:'F41.0',name:'Trastorno de pánico'},{code:'F41.1',name:'Trastorno de ansiedad generalizada'},
+  {code:'F41.2',name:'Trastorno mixto ansioso-depresivo'},{code:'F43.0',name:'Reacción a estrés agudo'},
+  {code:'F43.1',name:'Trastorno de estrés postraumático'},{code:'F43.2',name:'Trastornos de adaptación'},
+  {code:'F51.0',name:'Insomnio no orgánico'},{code:'G20',name:'Enfermedad de Parkinson'},
+  {code:'G40.9',name:'Epilepsia, no especificada'},{code:'G43.0',name:'Migraña sin aura'},
+  {code:'G43.9',name:'Migraña, no especificada'},{code:'G44.2',name:'Cefalea de tipo tensión'},
+  {code:'G47.0',name:'Trastornos del inicio y del mantenimiento del sueño'},{code:'G51.0',name:'Parálisis de Bell'},
+  {code:'G54.2',name:'Lesión de raíces nerviosas cervicales'},{code:'G54.4',name:'Lesión de raíces nerviosas lumbosacras'},
+  {code:'G62.9',name:'Polineuropatía, no especificada'},{code:'H10.9',name:'Conjuntivitis, no especificada'},
+  {code:'H52.1',name:'Miopía'},{code:'H52.2',name:'Astigmatismo'},{code:'H52.4',name:'Presbicia'},
+  {code:'H61.2',name:'Cerumen impactado'},{code:'H65.9',name:'Otitis media no supurativa, no especificada'},
+  {code:'H66.9',name:'Otitis media supurativa, no especificada'},{code:'H83.3',name:'Trastornos cocleares por ruido'},
+  {code:'H91.9',name:'Pérdida de audición, no especificada'},{code:'I10',name:'Hipertensión esencial (primaria)'},
+  {code:'I20.9',name:'Angina de pecho, no especificada'},{code:'I21.9',name:'Infarto agudo del miocardio, no especificado'},
+  {code:'I25.1',name:'Enfermedad aterosclerótica del corazón'},{code:'I48',name:'Fibrilación y aleteo auricular'},
+  {code:'I50.0',name:'Insuficiencia cardíaca congestiva'},{code:'I50.9',name:'Insuficiencia cardíaca, no especificada'},
+  {code:'I63.9',name:'Infarto cerebral, no especificado'},{code:'I64',name:'Accidente vascular encefálico'},
+  {code:'I83.9',name:'Várices de los miembros inferiores'},{code:'J00',name:'Rinofaringitis aguda (resfriado común)'},
+  {code:'J01.0',name:'Sinusitis maxilar aguda'},{code:'J02.9',name:'Faringitis aguda, no especificada'},
+  {code:'J03.9',name:'Amigdalitis aguda, no especificada'},{code:'J04.0',name:'Laringitis aguda'},
+  {code:'J06.9',name:'Infección aguda de las vías respiratorias superiores, no especificada'},
+  {code:'J18.9',name:'Neumonía, no especificada'},{code:'J20.9',name:'Bronquitis aguda, no especificada'},
+  {code:'J30.1',name:'Rinitis alérgica debida al polen'},{code:'J30.4',name:'Rinitis alérgica, no especificada'},
+  {code:'J32.0',name:'Sinusitis maxilar crónica'},{code:'J35.0',name:'Amigdalitis crónica'},
+  {code:'J40',name:'Bronquitis, no especificada'},{code:'J44.1',name:'EPOC con exacerbación aguda'},
+  {code:'J45.0',name:'Asma predominantemente alérgica'},{code:'J45.9',name:'Asma, no especificada'},
+  {code:'K21.0',name:'Enfermedad por reflujo gastroesofágico con esofagitis'},
+  {code:'K21.9',name:'Enfermedad por reflujo gastroesofágico sin esofagitis'},
+  {code:'K25.9',name:'Úlcera gástrica, no especificada'},{code:'K29.5',name:'Gastritis crónica, no especificada'},
+  {code:'K29.7',name:'Gastritis, no especificada'},{code:'K30',name:'Dispepsia'},
+  {code:'K35.9',name:'Apendicitis aguda, no especificada'},{code:'K58.9',name:'Síndrome del intestino irritable'},
+  {code:'K59.0',name:'Estreñimiento'},{code:'K72.9',name:'Insuficiencia hepática, no especificada'},
+  {code:'K80.2',name:'Colelitiasis sin colecistitis'},{code:'K85.9',name:'Pancreatitis aguda, no especificada'},
+  {code:'K92.0',name:'Hematemesis'},{code:'K92.1',name:'Melena'},
+  {code:'L01.0',name:'Impétigo'},{code:'L02.9',name:'Absceso cutáneo, furúnculo'},
+  {code:'L03.9',name:'Celulitis, no especificada'},{code:'L20.9',name:'Dermatitis atópica, no especificada'},
+  {code:'L23.9',name:'Dermatitis alérgica de contacto'},{code:'L40.9',name:'Psoriasis, no especificada'},
+  {code:'L50.0',name:'Urticaria alérgica'},{code:'L50.9',name:'Urticaria, no especificada'},
+  {code:'L70.0',name:'Acné vulgar'},{code:'M05.9',name:'Artritis reumatoide seropositiva'},
+  {code:'M10.9',name:'Gota, no especificada'},{code:'M13.9',name:'Artritis, no especificada'},
+  {code:'M16.9',name:'Coxartrosis, no especificada'},{code:'M17.9',name:'Gonartrosis, no especificada'},
+  {code:'M25.5',name:'Dolor en articulación'},{code:'M47.9',name:'Espondiloartrosis, no especificada'},
+  {code:'M50.1',name:'Degeneración del disco cervical'},{code:'M51.1',name:'Degeneración del disco lumbar con radiculopatía'},
+  {code:'M51.9',name:'Degeneración del disco intervertebral, no especificada'},
+  {code:'M54.2',name:'Cervicalgia'},{code:'M54.3',name:'Ciática'},
+  {code:'M54.4',name:'Lumbago con ciática'},{code:'M54.5',name:'Lumbago, no especificado'},
+  {code:'M65.3',name:'Dedo en gatillo'},{code:'M75.1',name:'Síndrome del manguito de los rotadores'},
+  {code:'M77.1',name:'Epicondilitis lateral'},{code:'M79.1',name:'Mialgia'},
+  {code:'M81.9',name:'Osteoporosis, no especificada'},
+  {code:'N18.9',name:'Insuficiencia renal crónica, no especificada'},{code:'N20.0',name:'Cálculo del riñón'},
+  {code:'N23',name:'Cólico renal, no especificado'},{code:'N30.0',name:'Cistitis aguda'},
+  {code:'N39.0',name:'Infección de vías urinarias'},{code:'N40',name:'Hiperplasia de la próstata'},
+  {code:'N76.0',name:'Vaginitis aguda'},{code:'N80.9',name:'Endometriosis, no especificada'},
+  {code:'N83.2',name:'Otros quistes ováricos'},{code:'N92.0',name:'Menstruación excesiva y frecuente'},
+  {code:'N94.6',name:'Dismenorrea, no especificada'},{code:'O20.0',name:'Amenaza de aborto'},
+  {code:'R00.0',name:'Taquicardia, no especificada'},{code:'R05',name:'Tos'},
+  {code:'R06.0',name:'Disnea'},{code:'R07.4',name:'Dolor torácico, no especificado'},
+  {code:'R10.0',name:'Dolor abdominal agudo'},{code:'R10.4',name:'Otros dolores abdominales'},
+  {code:'R11',name:'Náuseas y vómitos'},{code:'R12',name:'Pirosis'},
+  {code:'R19.7',name:'Diarrea, no especificada'},{code:'R42',name:'Mareo y desvanecimiento'},
+  {code:'R50.9',name:'Fiebre, no especificada'},{code:'R51',name:'Cefalea'},
+  {code:'R52.9',name:'Dolor, no especificado'},{code:'R53',name:'Malestar y fatiga'},
+  {code:'R55',name:'Síncope y colapso'},{code:'R60.0',name:'Edema localizado'},
+  {code:'R73.09',name:'Hiperglucemia, no especificada'},
+  {code:'S60.9',name:'Traumatismo superficial de la muñeca y de la mano'},
+  {code:'S70.9',name:'Traumatismo superficial de la cadera y del muslo'},
+  {code:'S80.9',name:'Traumatismo superficial de la pierna'},
+  {code:'T14.0',name:'Herida de región no especificada'},{code:'W19',name:'Caída no especificada'},
+  {code:'Z00.0',name:'Examen médico general'},{code:'Z10.0',name:'Examen médico ocupacional'},
+  {code:'Z57.0',name:'Exposición ocupacional al ruido'},{code:'Z57.2',name:'Exposición ocupacional al polvo'},
+  {code:'Z57.5',name:'Exposición ocupacional a agentes tóxicos'},{code:'Z73.0',name:'Agotamiento vital (burnout)'},
+]
 
-  const fetchCitas = useCallback(async () => {
-    setLoading(true)
-    try {
-      const inicio = `${anio}-${String(mes + 1).padStart(2, '0')}-01`
-      const fin = new Date(anio, mes + 1, 0)
-      const finStr = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(fin.getDate()).padStart(2, '0')}`
+/* ══ FARMACOS ══ */
+const FARMACOS = [
+  {name:'Paracetamol',p:['500 mg tabletas','1000 mg tabletas','160 mg/5ml jarabe','250 mg/5ml jarabe','150 mg/ml gotas','125 mg supositorio']},
+  {name:'Ibuprofeno',p:['200 mg tabletas','400 mg tabletas','600 mg tabletas','800 mg tabletas','100 mg/5ml suspensión','40 mg/ml gotas']},
+  {name:'Naproxeno',p:['250 mg tabletas','500 mg tabletas']},
+  {name:'Diclofenaco',p:['50 mg tabletas','75 mg tabletas','100 mg cápsulas retard','75 mg/3ml inyectable','1% gel tópico']},
+  {name:'Ketorolaco',p:['10 mg tabletas','30 mg/ml inyectable']},
+  {name:'Metamizol (Dipirona)',p:['500 mg tabletas','1 g tabletas','500 mg/ml inyectable','500 mg/5ml jarabe']},
+  {name:'Tramadol',p:['50 mg cápsulas','100 mg tabletas retard','100 mg/2ml inyectable']},
+  {name:'Prednisona',p:['5 mg tabletas','20 mg tabletas','50 mg tabletas']},
+  {name:'Dexametasona',p:['0.5 mg tabletas','4 mg/ml inyectable','0.1% crema']},
+  {name:'Metilprednisolona',p:['4 mg tabletas','16 mg tabletas','40 mg inyectable','125 mg inyectable']},
+  {name:'Amoxicilina',p:['500 mg cápsulas','875 mg tabletas','125 mg/5ml suspensión','250 mg/5ml suspensión']},
+  {name:'Amoxicilina + Ác. Clavulánico',p:['500/125 mg tabletas','875/125 mg tabletas','250/62.5 mg/5ml suspensión']},
+  {name:'Azitromicina',p:['250 mg tabletas','500 mg tabletas','200 mg/5ml suspensión']},
+  {name:'Claritromicina',p:['250 mg tabletas','500 mg tabletas','125 mg/5ml suspensión']},
+  {name:'Ciprofloxacino',p:['250 mg tabletas','500 mg tabletas','750 mg tabletas']},
+  {name:'Levofloxacino',p:['250 mg tabletas','500 mg tabletas','750 mg tabletas']},
+  {name:'Metronidazol',p:['250 mg tabletas','500 mg tabletas','125 mg/5ml suspensión']},
+  {name:'Omeprazol',p:['10 mg cápsulas','20 mg cápsulas','40 mg cápsulas']},
+  {name:'Pantoprazol',p:['20 mg tabletas','40 mg tabletas','40 mg inyectable']},
+  {name:'Metoclopramida',p:['10 mg tabletas','5 mg/5ml jarabe','10 mg/2ml inyectable']},
+  {name:'Ondansetrón',p:['4 mg tabletas','8 mg tabletas','4 mg/2ml inyectable']},
+  {name:'Loperamida',p:['2 mg tabletas','2 mg/5ml solución']},
+  {name:'Losartán',p:['25 mg tabletas','50 mg tabletas','100 mg tabletas']},
+  {name:'Enalapril',p:['5 mg tabletas','10 mg tabletas','20 mg tabletas']},
+  {name:'Amlodipino',p:['5 mg tabletas','10 mg tabletas']},
+  {name:'Atenolol',p:['25 mg tabletas','50 mg tabletas','100 mg tabletas']},
+  {name:'Furosemida',p:['20 mg tabletas','40 mg tabletas','10 mg/ml inyectable']},
+  {name:'Hidroclorotiazida',p:['12.5 mg tabletas','25 mg tabletas','50 mg tabletas']},
+  {name:'Aspirina',p:['81 mg tabletas (cardio)','100 mg tabletas','325 mg tabletas','500 mg tabletas']},
+  {name:'Metformina',p:['500 mg tabletas','850 mg tabletas','1000 mg tabletas']},
+  {name:'Glibenclamida',p:['2.5 mg tabletas','5 mg tabletas']},
+  {name:'Glimepirida',p:['1 mg tabletas','2 mg tabletas','4 mg tabletas']},
+  {name:'Insulina NPH',p:['100 UI/ml vial 10ml','100 UI/ml cartucho 3ml']},
+  {name:'Salbutamol',p:['100 mcg/dosis inhalador','2 mg tabletas','5 mg/5ml jarabe','0.083% solución nebulización']},
+  {name:'Budesonida',p:['100 mcg/dosis inhalador','200 mcg/dosis inhalador','0.25 mg/2ml nebulización']},
+  {name:'Montelukast',p:['4 mg tabletas masticables','5 mg tabletas masticables','10 mg tabletas']},
+  {name:'Loratadina',p:['10 mg tabletas','5 mg/5ml jarabe']},
+  {name:'Cetirizina',p:['10 mg tabletas','5 mg/5ml jarabe']},
+  {name:'Fexofenadina',p:['60 mg tabletas','120 mg tabletas','180 mg tabletas']},
+  {name:'Ambroxol',p:['30 mg tabletas','15 mg/5ml jarabe','7.5 mg/ml gotas']},
+  {name:'Acetilcisteína',p:['200 mg sobres','600 mg sobres','100 mg/5ml jarabe']},
+  {name:'Diazepam',p:['2 mg tabletas','5 mg tabletas','10 mg tabletas','10 mg/2ml inyectable']},
+  {name:'Clonazepam',p:['0.25 mg tabletas','0.5 mg tabletas','1 mg tabletas','2 mg tabletas']},
+  {name:'Alprazolam',p:['0.25 mg tabletas','0.5 mg tabletas','1 mg tabletas']},
+  {name:'Fluoxetina',p:['10 mg cápsulas','20 mg cápsulas']},
+  {name:'Sertralina',p:['25 mg tabletas','50 mg tabletas','100 mg tabletas']},
+  {name:'Escitalopram',p:['5 mg tabletas','10 mg tabletas','20 mg tabletas']},
+  {name:'Gabapentina',p:['100 mg cápsulas','300 mg cápsulas','400 mg cápsulas','600 mg tabletas']},
+  {name:'Pregabalina',p:['75 mg cápsulas','150 mg cápsulas','300 mg cápsulas']},
+  {name:'Vitamina C',p:['500 mg tabletas','1000 mg tabletas','500 mg/5ml jarabe']},
+  {name:'Vitamina B complejo',p:['Tabletas','Cápsulas','100 mg/2ml inyectable']},
+  {name:'Vitamina D3',p:['400 UI tabletas','1000 UI tabletas','5000 UI tabletas','800 UI/ml gotas']},
+  {name:'Hierro ferroso',p:['200 mg tabletas','25 mg/ml gotas','125 mg/5ml jarabe']},
+  {name:'Calcio carbonato',p:['500 mg tabletas','1000 mg tabletas','600 mg + Vit D tabletas']},
+  {name:'Ácido fólico',p:['1 mg tabletas','5 mg tabletas']},
+  {name:'Levotiroxina',p:['25 mcg tabletas','50 mcg tabletas','75 mcg tabletas','100 mcg tabletas','125 mcg tabletas','150 mcg tabletas']},
+  {name:'Clotrimazol',p:['1% crema tópica','1% solución','100 mg óvulos vaginales','500 mg óvulo vaginal']},
+  {name:'Aciclovir',p:['200 mg tabletas','400 mg tabletas','800 mg tabletas','5% crema tópica']},
+]
 
-      // Buscar atenciones del mes
-      const { data: atData } = await supabase
-        .from('atenciones')
-        .select(`
-          id, fecha_atencion, motivo_consulta, proxima_consulta, hora_proxima_consulta,
-          requiere_seguimiento,
-          pacientes ( id, nombres, apellidos, cedula, telefono, edad, sexo, ocupacion ),
-          diagnosticos ( codigo_cie10, nombre_cie10, tipo )
-        `)
-        .gte('fecha_atencion', inicio)
-        .lte('fecha_atencion', finStr)
-        .order('fecha_atencion', { ascending: true })
+/* ══ EXAMEN FÍSICO REGIONAL — nuevas secciones ══ */
+const EF_REGIONES = [
+  { key:'cabeza_cara',        label:'Cabeza y Cara',       emoji:'🧠' },
+  { key:'cuello',             label:'Cuello',               emoji:'🦴' },
+  { key:'torax',              label:'Tórax',                emoji:'🫁' },
+  { key:'abdomen',            label:'Abdomen',              emoji:'🫃' },
+  { key:'extremidades_superiores', label:'Extremidades Superiores (A)', emoji:'💪' },
+  { key:'extremidades_inferiores', label:'Extremidades Inferiores (B)', emoji:'🦵' },
+  { key:'columna_vertebral',  label:'Columna Vertebral',   emoji:'🦴' },
+  { key:'sistema_neurologico',label:'Sistema Neurológico', emoji:'🧬' },
+  { key:'piel_anexos',        label:'Piel y Anexos',       emoji:'🩹' },
+  { key:'genitourinario',     label:'Genitourinario',      emoji:'🔵' },
+  { key:'region_rectal',      label:'Región Rectal',       emoji:'🔴' },
+]
 
-      // Buscar seguimientos del mes
-      const { data: segData } = await supabase
-        .from('atenciones')
-        .select(`
-          id, fecha_atencion, motivo_consulta, proxima_consulta, hora_proxima_consulta,
-          requiere_seguimiento,
-          pacientes ( id, nombres, apellidos, cedula, telefono, edad, sexo, ocupacion ),
-          diagnosticos ( codigo_cie10, nombre_cie10, tipo )
-        `)
-        .gte('proxima_consulta', inicio)
-        .lte('proxima_consulta', finStr)
-        .eq('requiere_seguimiento', true)
-        .order('proxima_consulta', { ascending: true })
+/* ══ EXAMS SUGGESTIONS ══ */
+const EXAMS_LAB = [
+  'Biometría hemática (BH)','Química sanguínea','Glucosa en ayunas','Glucosa postprandial',
+  'HbA1c (Hemoglobina glicosilada)','Creatinina','BUN (Nitrógeno ureico)','Ácido úrico',
+  'Colesterol total','HDL colesterol','LDL colesterol','Triglicéridos','Perfil lipídico completo',
+  'TGO (AST)','TGP (ALT)','GGT','Fosfatasa alcalina','Bilirrubinas total/directa/indirecta',
+  'Proteínas totales','Albúmina','Perfil hepático completo',
+  'TSH','T3 libre','T4 libre','Perfil tiroideo completo',
+  'Hemoglobina','Hematocrito','VCM','HCM','Plaquetas','Leucocitos','Neutrófilos','Linfocitos',
+  'Tiempo de protrombina (TP)','Tiempo de tromboplastina (TTP)','INR',
+  'Sodio','Potasio','Cloro','Calcio','Fósforo','Magnesio','Electrolitos completos',
+  'PCR (Proteína C reactiva)','VSG (Velocidad de sedimentación)','Factor reumatoide',
+  'ANA (anticuerpos antinucleares)','Anti-DNA',
+  'Examen elemental de orina (EMO)','Sedimento urinario','Microalbuminuria','Urocultivo',
+  'Coproparasitario','Sangre oculta en heces','Coprocultivo',
+  'Test de embarazo (beta-HCG)','FSH','LH','Estradiol','Progesterona','Testosterona',
+  'Vitamina D (25-OH)','Vitamina B12','Ácido fólico','Hierro sérico','Ferritina','TIBC',
+  'PSA (Antígeno prostático específico)','CA 125','CEA','AFP',
+  'VDRL/RPR','VIH (ELISA)','Hepatitis B (HBsAg)','Hepatitis C (Anti-HVC)',
+  'Prueba COVID-19','Antígeno de influenza','Cultivo faríngeo',
+  'Amilasa','Lipasa','Troponina','CK-MB','Dímero D','Lactato','Procalcitonina',
+]
+const EXAMS_IMG = [
+  'Radiografía de tórax (PA)','Radiografía de tórax (lateral)','Radiografía de columna cervical',
+  'Radiografía de columna lumbar','Radiografía de abdomen','Radiografía de pelvis',
+  'Radiografía de mano derecha','Radiografía de mano izquierda','Radiografía de rodilla derecha',
+  'Radiografía de rodilla izquierda','Radiografía de tobillo','Radiografía de pie',
+  'Radiografía de cadera','Radiografía de muñeca','Radiografía de hombro','Radiografía de codo',
+  'Ecografía abdominal','Ecografía pélvica','Ecografía renal','Ecografía tiroidea',
+  'Ecografía obstétrica','Ecografía de partes blandas','Ecografía doppler venoso',
+  'Ecografía doppler carotídeo','Ecocardiograma (ecografía cardíaca)',
+  'TC de cráneo','TC de tórax','TC de abdomen y pelvis',
+  'TC de columna cervical','TC de columna lumbar','TC de senos paranasales',
+  'RMN de cerebro','RMN de columna cervical','RMN de columna lumbar',
+  'RMN de rodilla','RMN de hombro','RMN de cadera',
+  'Mamografía bilateral','Mamografía unilateral','Densitometría ósea (DEXA)',
+  'Electrocardiograma (ECG)','Holter de ritmo 24h','Monitoreo ambulatorio de PA (MAPA)',
+  'Prueba de esfuerzo (ergometría)','Espirometría',
+  'Endoscopia digestiva alta (EDA)','Colonoscopia','Colposcopia',
+  'Electroencefalograma (EEG)','Electromiografía (EMG)','Velocidad de conducción nerviosa',
+  'Fondo de ojo','Campimetría','Audiometría','Impedanciometría',
+]
+const EXAMS_OTRO = [
+  'Biopsia de piel','Biopsia de tejido blando','PAAF (punción aspiración con aguja fina)',
+  'Citología cervical (Papanicolaou)','Colposcopia con biopsia',
+  'Test de alergia (prick test)','Prueba de tuberculina (PPD)',
+  'Glucometría capilar','Oximetría de pulso','Peak flow (flujo espiratorio máximo)',
+  'Presión intraocular (tonometría)','Agudeza visual','Test de Ishihara (visión de colores)',
+  'Prueba de esfuerzo cardiovascular','Test de marcha 6 minutos',
+  'Panel reumatológico completo','Panel hormonal femenino','Panel hormonal masculino',
+]
 
-      // Combinar y deduplicar por id
-      const todos = [...(atData || []), ...(segData || [])]
-      const unique = Object.values(Object.fromEntries(todos.map(a => [a.id, a])))
-      setCitas(unique)
-    } catch (e) {
-      console.error('Error fetchCitas:', e)
-      setCitas([])
-    } finally {
-      setLoading(false)
-    }
-  }, [mes, anio])
+/* ══ SEARCH HELPERS ══ */
+function searchCIE10(q){
+  if(!q||q.length<1)return[]
+  const ql=q.toLowerCase()
+  return CIE10_ES_LOCAL.filter(c=>c.code.toLowerCase().startsWith(ql)||c.code.toLowerCase().includes(ql)||c.name.toLowerCase().includes(ql)).slice(0,12)
+}
+function searchFarmaco(q){
+  if(!q||q.length<2)return[]
+  const ql=q.toLowerCase()
+  const r=[]
+  FARMACOS.forEach(f=>{if(f.name.toLowerCase().includes(ql)){f.p.forEach(p=>{r.push({name:f.name,presentation:p,full:`${f.name} ${p}`})})}})
+  return r.slice(0,12)
+}
 
-  useEffect(() => { fetchCitas() }, [fetchCitas])
+/* ══ CIE10 SEARCH WITH CUSTOM CODES ══ */
+function CIE10Search({value,onChange,onSelect}){
+  const[open,setOpen]=useState(false)
+  const[customCodes,setCustomCodes]=useState([])
+  const[saving,setSaving]=useState(false)
+  const[savedMsg,setSavedMsg]=useState('')
+  const[showSaveForm,setShowSaveForm]=useState(false)
+  const[newCodigo,setNewCodigo]=useState('')
+  const[newNombre,setNewNombre]=useState('')
+  const ref=useRef()
 
-  // Build calendar grid
-  const primerDia = new Date(anio, mes, 1).getDay()
-  const diasEnMes = new Date(anio, mes + 1, 0).getDate()
+  useEffect(()=>{
+    supabase.from('cie10_custom').select('*').order('created_at',{ascending:false}).then(({data})=>{
+      if(data)setCustomCodes(data.map(d=>({code:d.codigo,name:d.nombre,custom:true})))
+    })
+  },[])
 
-  const celdas = []
-  for (let i = 0; i < primerDia; i++) celdas.push(null)
-  for (let d = 1; d <= diasEnMes; d++) celdas.push(d)
+  const allCodes=[...CIE10_ES_LOCAL,...customCodes]
+  const results=value.length>=1?allCodes.filter(c=>{const q=value.toLowerCase();return c.code.toLowerCase().startsWith(q)||c.code.toLowerCase().includes(q)||c.name.toLowerCase().includes(q)}).slice(0,12):[]
 
-  const fechaStr = (d) => `${anio}-${String(mes + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  useEffect(()=>{setOpen(value.length>=1);if(value.length>=1){setNewCodigo(value.toUpperCase());setNewNombre('')}},[value])
+  useEffect(()=>{const h=(e)=>{if(ref.current&&!ref.current.contains(e.target)){setOpen(false);setShowSaveForm(false)}};document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h)},[])
 
-  const citasDelDia = (d) => {
-    const f = fechaStr(d)
-    return citas.filter(c => c.fecha_atencion === f || c.proxima_consulta === f)
+  const handleGuardar=async()=>{
+    if(!newCodigo||!newNombre)return
+    setSaving(true)
+    try{
+      const{error}=await supabase.from('cie10_custom').upsert({codigo:newCodigo.toUpperCase(),nombre:newNombre},{onConflict:'codigo'})
+      if(!error){
+        const nuevo={code:newCodigo.toUpperCase(),name:newNombre,custom:true}
+        setCustomCodes(p=>[nuevo,...p.filter(c=>c.code!==nuevo.code)])
+        setSavedMsg(`✓ Guardado: ${newCodigo.toUpperCase()}`)
+        onSelect(nuevo);setShowSaveForm(false);setOpen(false)
+        setTimeout(()=>setSavedMsg(''),3000)
+      }
+    }catch(e){}
+    finally{setSaving(false)}
   }
 
-  const citasDiaSeleccionado = diaSeleccionado ? citasDelDia(diaSeleccionado) : []
+  return(
+    <div className="pos-relative" ref={ref}>
+      <input className="form-input" value={value} onChange={e=>{onChange(e.target.value);setShowSaveForm(false)}} placeholder="Buscar código o diagnóstico CIE-10 en español..." autoComplete="off" onFocus={()=>value.length>=1&&setOpen(true)}/>
+      {savedMsg&&<div style={{fontSize:11,color:'var(--accent)',marginTop:2,fontWeight:600}}>{savedMsg}</div>}
+      {open&&(
+        <div className="cie10-dropdown" style={{maxHeight:300,overflowY:'auto'}}>
+          {results.map((r,i)=>(
+            <div key={i} className="cie10-option" onMouseDown={()=>{onSelect(r);setOpen(false);setShowSaveForm(false)}}>
+              <span className="cie10-code">{r.code}</span>
+              <span className="cie10-name">{r.name}</span>
+              {r.custom&&<span style={{marginLeft:'auto',fontSize:10,background:'#F0FFF4',color:'#2F855A',padding:'1px 6px',borderRadius:8,fontWeight:700,flexShrink:0}}>Personalizado</span>}
+            </div>
+          ))}
+          <div style={{borderTop:'1px solid var(--border-light)',background:'var(--surface-2)'}}>
+            {!showSaveForm?(
+              <button onMouseDown={e=>{e.preventDefault();setShowSaveForm(true);setNewCodigo(value.toUpperCase());setNewNombre('')}} style={{width:'100%',padding:'9px 14px',background:'none',border:'none',cursor:'pointer',fontSize:12,color:'var(--primary)',fontWeight:600,display:'flex',alignItems:'center',gap:8,fontFamily:'var(--font-body)',textAlign:'left'}}>
+                ➕ Guardar diagnóstico CIE-10 personalizado
+              </button>
+            ):(
+              <div style={{padding:'10px 12px',display:'flex',flexDirection:'column',gap:8}}>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--primary)',marginBottom:2}}>💾 Guardar nuevo diagnóstico CIE-10</div>
+                <div style={{display:'flex',gap:8}}>
+                  <input value={newCodigo} onChange={e=>setNewCodigo(e.target.value.toUpperCase())} placeholder="Código (ej: Z99.0)" style={{width:110,padding:'6px 8px',border:'1.5px solid var(--border)',borderRadius:6,fontSize:12,fontFamily:'var(--font-display)',fontWeight:700,outline:'none'}} onMouseDown={e=>e.stopPropagation()}/>
+                  <input value={newNombre} onChange={e=>setNewNombre(e.target.value)} placeholder="Nombre del diagnóstico..." style={{flex:1,padding:'6px 8px',border:'1.5px solid var(--border)',borderRadius:6,fontSize:12,fontFamily:'var(--font-body)',outline:'none'}} onMouseDown={e=>e.stopPropagation()} onKeyDown={e=>e.key==='Enter'&&handleGuardar()}/>
+                </div>
+                <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+                  <button onMouseDown={e=>{e.preventDefault();setShowSaveForm(false)}} style={{padding:'5px 12px',background:'none',border:'1px solid var(--border)',borderRadius:6,cursor:'pointer',fontSize:12,fontFamily:'var(--font-body)'}}>Cancelar</button>
+                  <button onMouseDown={e=>{e.preventDefault();handleGuardar()}} disabled={!newCodigo||!newNombre||saving} style={{padding:'5px 12px',background:'var(--primary)',color:'white',border:'none',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'var(--font-body)',opacity:(!newCodigo||!newNombre)?0.5:1}}>
+                    {saving?'Guardando...':'✓ Guardar'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
-  const esHoy = (d) => {
-    return d === hoy.getDate() && mes === hoy.getMonth() && anio === hoy.getFullYear()
+/* ══ FARMACO SEARCH ══ */
+function FarmacoSearch({value,onChange,onSelect}){
+  const[open,setOpen]=useState(false)
+  const ref=useRef()
+  const results=searchFarmaco(value)
+  useEffect(()=>{setOpen(value.length>=2&&results.length>0)},[value])
+  useEffect(()=>{const h=(e)=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false)};document.addEventListener('mousedown',h);return()=>document.removeEventListener('mousedown',h)},[])
+  return(
+    <div className="pos-relative" ref={ref}>
+      <input className="form-input" value={value} onChange={e=>{onChange(e.target.value);setOpen(true)}} placeholder="Buscar medicamento..." autoComplete="off"/>
+      {open&&results.length>0&&(
+        <div className="cie10-dropdown">
+          {results.map((r,i)=>(<div key={i} className="cie10-option" onMouseDown={()=>{onSelect(r);setOpen(false)}}><span className="cie10-code" style={{minWidth:160}}>{r.name}</span><span className="cie10-name">{r.presentation}</span></div>))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ══ EXAMEN FÍSICO REGIONAL — nuevo formato ══ */
+function ExamenFisicoRegional({value,onChange}){
+  const setField=(k,v)=>onChange({...value,[k]:v})
+  return(
+    <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
+      {EF_REGIONES.map(r=>(
+        <div key={r.key} style={{border:'1.5px solid var(--border-light)',borderRadius:10,overflow:'hidden'}}>
+          <div style={{background:'var(--primary)',color:'white',padding:'7px 12px',fontSize:12,fontWeight:700,display:'flex',alignItems:'center',gap:6}}>
+            <span>{r.emoji}</span>{r.label}
+            {!value[r.key]&&<span style={{marginLeft:'auto',fontSize:10,background:'rgba(255,255,255,0.2)',padding:'1px 8px',borderRadius:10}}>NORMAL</span>}
+            {value[r.key]&&<span style={{marginLeft:'auto',fontSize:10,background:'#FEB2B2',color:'#C53030',padding:'1px 8px',borderRadius:10,fontWeight:800}}>CON HALLAZGO</span>}
+          </div>
+          <div style={{padding:'10px 12px'}}>
+            <textarea
+              className="form-textarea"
+              value={value[r.key]||''}
+              onChange={e=>setField(r.key,e.target.value)}
+              placeholder="Normal — escribe aquí si hay hallazgos..."
+              style={{minHeight:72,fontSize:12,resize:'vertical'}}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ══ RESULTADOS DE EXÁMENES — tabla abierta tipo el modelo dibujado ══ */
+const emptyFila = (tipo='Laboratorio') => ({
+  id: Date.now() + Math.random(),
+  tipo,
+  nombre_examen: '',
+  resultado: '',
+  observacion: '',
+  fecha_examen: ''
+})
+
+function ExamenesSection({ examGrupos, setExamGrupos }) {
+  const [tab, setTab] = useState('Laboratorio')
+
+  const filas = (examGrupos[tab] || [])
+
+  const addFila = () => {
+    setExamGrupos(prev => ({
+      ...prev,
+      [tab]: [...(prev[tab] || []), emptyFila(tab)]
+    }))
   }
 
-  const mesAnterior = () => {
-    if (mes === 0) { setMes(11); setAnio(a => a - 1) }
-    else setMes(m => m - 1)
-    setDiaSeleccionado(null)
+  const removeFila = (id) => {
+    setExamGrupos(prev => ({
+      ...prev,
+      [tab]: (prev[tab] || []).filter(f => f.id !== id)
+    }))
   }
 
-  const mesSiguiente = () => {
-    if (mes === 11) { setMes(0); setAnio(a => a + 1) }
-    else setMes(m => m + 1)
-    setDiaSeleccionado(null)
+  const setField = (id, k, v) => {
+    setExamGrupos(prev => ({
+      ...prev,
+      [tab]: (prev[tab] || []).map(f => f.id === id ? { ...f, [k]: v } : f)
+    }))
   }
 
-  const limpiarMes = async () => {
-    setLimpiando(true)
-    try {
-      const inicio = `${anio}-${String(mes + 1).padStart(2, '0')}-01`
-      const ultimoDia = new Date(anio, mes + 1, 0).getDate()
-      const finStr = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`
+  const tieneData = (t) => (examGrupos[t] || []).some(f => f.nombre_examen || f.resultado || f.observacion)
 
-      // Limpiar seguimientos del mes en atenciones
-      await supabase
-        .from('atenciones')
-        .update({ proxima_consulta: null, requiere_seguimiento: false })
-        .gte('proxima_consulta', inicio)
-        .lte('proxima_consulta', finStr)
-
-      // Limpiar lista_dia del mes
-      await supabase
-        .from('lista_dia')
-        .delete()
-        .gte('fecha', inicio)
-        .lte('fecha', finStr)
-
-      setConfirmLimpiar(false)
-      setDiaSeleccionado(null)
-      setCitas([])
-      fetchCitas()
-    } catch (e) {
-      console.error('Error limpiarMes:', e)
-      setConfirmLimpiar(false)
-    } finally {
-      setLimpiando(false)
-    }
+  const PLACEHOLDER = {
+    'Laboratorio': 'Ej: Hemograma, Bioquímico, Orina, Heces, Hormonales...',
+    'Imagenología': 'Ej: Rx Tórax, Ecografía Abdominal, TC, RMN...',
+    'Otro': 'Ej: Biopsia, ECG, Espirometría, Audiometría...',
   }
-
-  const formatFecha = (f) => {
-    if (!f) return '—'
-    return new Date(f + 'T00:00:00').toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' })
+  const PLACEHOLDER_RES = {
+    'Laboratorio': 'Ej: Leucocitos 8.5, Hemoglobina 14.2, Glucosa 95...',
+    'Imagenología': 'Ej: Sin lesiones pulmonares. Silueta cardíaca normal...',
+    'Otro': 'Ej: Ritmo sinusal, sin alteraciones...',
   }
-
-  // Stats
-  const totalMes = citas.filter(c => {
-    const f = `${anio}-${String(mes + 1).padStart(2, '0')}`
-    return c.fecha_atencion?.startsWith(f)
-  }).length
-
-  const seguimientosMes = citas.filter(c => {
-    const f = `${anio}-${String(mes + 1).padStart(2, '0')}`
-    return c.proxima_consulta?.startsWith(f)
-  }).length
 
   return (
+    <div className="card">
+      <div className="card-header">
+        <div className="card-header-icon" style={{ background: '#2C7A7B' }}><FlaskConical size={16} /></div>
+        <div>
+          <div className="card-header-title">Resultados de Exámenes</div>
+          <div className="card-header-sub">Ingrese el nombre del examen, resultados y observaciones</div>
+        </div>
+      </div>
+      <div className="card-body">
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '2px solid var(--border-light)' }}>
+          {['Laboratorio', 'Imagenología', 'Otro'].map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              padding: '7px 16px', border: 'none', background: 'none', cursor: 'pointer',
+              fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: tab === t ? 700 : 400,
+              color: tab === t ? 'var(--primary)' : 'var(--text-muted)',
+              borderBottom: tab === t ? '2px solid var(--primary)' : '2px solid transparent',
+              marginBottom: -2, display: 'flex', alignItems: 'center', gap: 6
+            }}>
+              {t === 'Laboratorio' ? '🧪' : t === 'Imagenología' ? '🩻' : '📋'} {t}
+              {tieneData(t) && (
+                <span style={{ background: 'var(--accent)', color: 'white', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10 }}>
+                  {(examGrupos[t] || []).filter(f => f.nombre_examen).length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Cabecera de la tabla */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '220px 1fr 1fr 36px',
+          gap: 8,
+          padding: '8px 12px',
+          background: 'var(--primary)',
+          borderRadius: '8px 8px 0 0',
+          marginBottom: 0
+        }}>
+          {['Examen realizado', 'Resultados', 'Observaciones', ''].map((h, i) => (
+            <div key={i} style={{
+              fontSize: 11, fontWeight: 700, color: 'white',
+              textTransform: 'uppercase', letterSpacing: '0.5px'
+            }}>{h}</div>
+          ))}
+        </div>
+
+        {/* Filas de exámenes */}
+        <div style={{ border: '1.5px solid var(--border-light)', borderTop: 'none', borderRadius: '0 0 8px 8px', overflow: 'hidden' }}>
+          {filas.length === 0 && (
+            <div style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+              Haga click en "Agregar examen" para comenzar
+            </div>
+          )}
+
+          {filas.map((fila, idx) => (
+            <div key={fila.id} style={{
+              display: 'grid',
+              gridTemplateColumns: '220px 1fr 1fr 36px',
+              gap: 8,
+              padding: '10px 12px',
+              borderBottom: idx < filas.length - 1 ? '1px solid var(--border-light)' : 'none',
+              background: idx % 2 === 0 ? 'white' : 'var(--surface-2)',
+              alignItems: 'flex-start'
+            }}>
+              {/* Nombre del examen */}
+              <div>
+                <textarea
+                  value={fila.nombre_examen}
+                  onChange={e => setField(fila.id, 'nombre_examen', e.target.value)}
+                  placeholder={PLACEHOLDER[tab]}
+                  style={{
+                    width: '100%', minHeight: 70, resize: 'vertical',
+                    border: '1.5px solid var(--border-light)', borderRadius: 6,
+                    padding: '7px 10px', fontSize: 12, fontFamily: 'var(--font-body)',
+                    lineHeight: 1.5, outline: 'none', background: 'white',
+                    boxSizing: 'border-box', fontWeight: 600
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'var(--secondary)'}
+                  onBlur={e => e.target.style.borderColor = 'var(--border-light)'}
+                />
+                <input
+                  type="date"
+                  value={fila.fecha_examen}
+                  onChange={e => setField(fila.id, 'fecha_examen', e.target.value)}
+                  style={{
+                    marginTop: 6, width: '100%', padding: '4px 8px',
+                    border: '1px solid var(--border-light)', borderRadius: 6,
+                    fontSize: 11, fontFamily: 'var(--font-body)', outline: 'none',
+                    color: 'var(--text-muted)', boxSizing: 'border-box'
+                  }}
+                  title="Fecha del examen"
+                />
+              </div>
+
+              {/* Resultados */}
+              <textarea
+                value={fila.resultado}
+                onChange={e => setField(fila.id, 'resultado', e.target.value)}
+                placeholder={PLACEHOLDER_RES[tab]}
+                style={{
+                  width: '100%', minHeight: 90, resize: 'vertical',
+                  border: '1.5px solid var(--border-light)', borderRadius: 6,
+                  padding: '7px 10px', fontSize: 12, fontFamily: 'var(--font-body)',
+                  lineHeight: 1.5, outline: 'none', background: 'white',
+                  boxSizing: 'border-box'
+                }}
+                onFocus={e => e.target.style.borderColor = 'var(--secondary)'}
+                onBlur={e => e.target.style.borderColor = 'var(--border-light)'}
+              />
+
+              {/* Observaciones */}
+              <textarea
+                value={fila.observacion}
+                onChange={e => setField(fila.id, 'observacion', e.target.value)}
+                placeholder="Interpretación clínica, observaciones..."
+                style={{
+                  width: '100%', minHeight: 90, resize: 'vertical',
+                  border: '1.5px solid var(--border-light)', borderRadius: 6,
+                  padding: '7px 10px', fontSize: 12, fontFamily: 'var(--font-body)',
+                  lineHeight: 1.5, outline: 'none', background: 'white',
+                  boxSizing: 'border-box'
+                }}
+                onFocus={e => e.target.style.borderColor = 'var(--secondary)'}
+                onBlur={e => e.target.style.borderColor = 'var(--border-light)'}
+              />
+
+              {/* Eliminar */}
+              <button
+                className="btn-danger-ghost"
+                onClick={() => removeFila(fila.id)}
+                title="Eliminar fila"
+                style={{ marginTop: 4 }}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Botón agregar */}
+        <button className="btn-add" onClick={addFila} style={{ marginTop: 10 }}>
+          <Plus size={14} /> Agregar examen de {tab.toLowerCase()}
+        </button>
+
+      </div>
+    </div>
+  )
+}
+
+/* ══ HELPERS ══ */
+const emptyDiag=()=>({id:Date.now()+Math.random(),codigo:'',nombre:'',tipo:'presuntivo'})
+const emptyTrat=()=>({id:Date.now()+Math.random(),medicamento:'',cantidad:'',posologia:''})
+
+/* ══ MAIN COMPONENT ══ */
+export default function NuevaAtencion({onSaved}){
+  const today=new Date().toISOString().split('T')[0]
+  const[saving,setSaving]=useState(false)
+  const[alert,setAlert]=useState(null)
+  const[cedulaBuscando,setCedulaBuscando]=useState(false)
+  const[cedulaEncontrado,setCedulaEncontrado]=useState(false)
+  const[fecha,setFecha]=useState(today)
+  const[generales,setGenerales]=useState({nombres:'',apellidos:'',cedula:'',telefono:'',edad:'',sexo:'',ocupacion:'',fecha_nacimiento:'',estado_civil:'',direccion:'',correo:'',grupo_sanguineo:''})
+  const[antecedentes,setAntecedentes]=useState({patologicos:'',alergicos:'',quirurgicos:'',familiares:'',gestas:'',partos:'',cesareas:'',abortos:'',planificacion:''})
+  const[motivo,setMotivo]=useState('')
+  const[vitales,setVitales]=useState({pa:'',temperatura:'',saturacion:'',fr:'',peso:'',talla:'',perimetro:''})
+  const[evolucion,setEvolucion]=useState('')
+  const[examenFisico,setExamenFisico]=useState({})
+  const[diagnosticos,setDiagnosticos]=useState([emptyDiag()])
+  const[examGrupos,setExamGrupos]=useState({})
+  const[tratamientos,setTratamientos]=useState([emptyTrat()])
+  const[observaciones,setObservaciones]=useState('')
+  const[recomendaciones,setRecomendaciones]=useState('')
+  const[seguimiento,setSeguimiento]=useState(false)
+  const[proximaConsulta,setProximaConsulta]=useState('')
+  const[horaConsulta,setHoraConsulta]=useState('')
+
+  const imc=(()=>{const p=parseFloat(vitales.peso);const t=parseFloat(vitales.talla);if(p>0&&t>0)return(p/((t/100)**2)).toFixed(1);return''})()
+  const imcClass=(()=>{const v=parseFloat(imc);if(!v)return'';if(v<18.5)return'Bajo peso';if(v<25)return'Normal';if(v<30)return'Sobrepeso';return'Obesidad'})()
+
+  // Búsqueda por cédula
+  useEffect(()=>{
+    const cedula=generales.cedula.replace(/\D/g,'')
+    if(cedula.length!==10){setCedulaEncontrado(false);return}
+    const buscar=async()=>{
+      setCedulaBuscando(true)
+      try{
+        const{data:pac}=await supabase.from('pacientes').select('*').eq('cedula',cedula).single()
+        if(pac){
+          setCedulaEncontrado(true)
+          setGenerales(p=>({...p,nombres:pac.nombres||'',apellidos:pac.apellidos||'',telefono:pac.telefono||'',edad:pac.edad?.toString()||'',sexo:pac.sexo||'',ocupacion:pac.ocupacion||'',fecha_nacimiento:pac.fecha_nacimiento||'',estado_civil:pac.estado_civil||'',direccion:pac.direccion||'',correo:pac.correo||'',grupo_sanguineo:pac.grupo_sanguineo||''}))
+          const{data:ant}=await supabase.from('antecedentes').select('*').eq('paciente_id',pac.id).single()
+          if(ant){setAntecedentes({patologicos:ant.patologicos_personales||'',alergicos:ant.alergicos||'',quirurgicos:ant.quirurgicos||'',familiares:ant.patologicos_familiares||'',gestas:ant.gestas?.toString()||'',partos:ant.partos_vaginales?.toString()||'',cesareas:ant.cesareas?.toString()||'',abortos:ant.abortos?.toString()||'',planificacion:ant.metodo_planificacion||''})}
+        }else{setCedulaEncontrado(false)}
+      }catch(e){setCedulaEncontrado(false)}
+      finally{setCedulaBuscando(false)}
+    }
+    const t=setTimeout(buscar,500);return()=>clearTimeout(t)
+  },[generales.cedula])
+
+  // Auto-calcular edad
+  useEffect(()=>{
+    if(generales.fecha_nacimiento){
+      const n=new Date(generales.fecha_nacimiento);const h=new Date();let e=h.getFullYear()-n.getFullYear();const m=h.getMonth()-n.getMonth();if(m<0||(m===0&&h.getDate()<n.getDate()))e--;
+      setGenerales(p=>({...p,edad:String(e)}))
+    }
+  },[generales.fecha_nacimiento])
+
+  const setGen=(k,v)=>setGenerales(p=>({...p,[k]:v}))
+  const setAnt=(k,v)=>setAntecedentes(p=>({...p,[k]:v}))
+  const setVit=(k,v)=>setVitales(p=>({...p,[k]:v}))
+  const addDiag=()=>setDiagnosticos(d=>[...d,emptyDiag()])
+  const removeDiag=(id)=>setDiagnosticos(d=>d.filter(x=>x.id!==id))
+  const setDiagField=(id,k,v)=>setDiagnosticos(d=>d.map(x=>x.id===id?{...x,[k]:v}:x))
+  const addTrat=()=>setTratamientos(t=>[...t,emptyTrat()])
+  const removeTrat=(id)=>setTratamientos(t=>t.filter(x=>x.id!==id))
+  const setTratField=(id,k,v)=>setTratamientos(t=>t.map(x=>x.id===id?{...x,[k]:v}:x))
+
+  const handleSave=async()=>{
+    if(!generales.nombres||!generales.apellidos){setAlert({type:'error',msg:'Por favor ingrese nombres y apellidos del paciente.'});window.scrollTo({top:0,behavior:'smooth'});return}
+    setSaving(true);setAlert(null)
+    try{
+      let pacienteId=null
+      if(generales.cedula){const{data:ex}=await supabase.from('pacientes').select('id').eq('cedula',generales.cedula).single();if(ex){pacienteId=ex.id;await supabase.from('pacientes').update({nombres:generales.nombres,apellidos:generales.apellidos,telefono:generales.telefono,edad:parseInt(generales.edad)||null,sexo:generales.sexo,ocupacion:generales.ocupacion,fecha_nacimiento:generales.fecha_nacimiento||null,estado_civil:generales.estado_civil||null,direccion:generales.direccion||null,correo:generales.correo||null,grupo_sanguineo:generales.grupo_sanguineo||null}).eq('id',pacienteId)}}
+      if(!pacienteId){const{data:np,error:pe}=await supabase.from('pacientes').insert({nombres:generales.nombres,apellidos:generales.apellidos,cedula:generales.cedula||null,telefono:generales.telefono,edad:parseInt(generales.edad)||null,sexo:generales.sexo,ocupacion:generales.ocupacion,fecha_nacimiento:generales.fecha_nacimiento||null,estado_civil:generales.estado_civil||null,direccion:generales.direccion||null,correo:generales.correo||null,grupo_sanguineo:generales.grupo_sanguineo||null}).select('id').single();if(pe)throw pe;pacienteId=np.id}
+      const{data:ae}=await supabase.from('antecedentes').select('id').eq('paciente_id',pacienteId).single()
+      const ad={paciente_id:pacienteId,patologicos_personales:antecedentes.patologicos,alergicos:antecedentes.alergicos,quirurgicos:antecedentes.quirurgicos,patologicos_familiares:antecedentes.familiares,gestas:parseInt(antecedentes.gestas)||null,partos_vaginales:parseInt(antecedentes.partos)||null,cesareas:parseInt(antecedentes.cesareas)||null,abortos:parseInt(antecedentes.abortos)||null,metodo_planificacion:antecedentes.planificacion}
+      if(ae){await supabase.from('antecedentes').update(ad).eq('id',ae.id)}else{await supabase.from('antecedentes').insert(ad)}
+      const{data:at,error:ate}=await supabase.from('atenciones').insert({paciente_id:pacienteId,fecha_atencion:fecha,motivo_consulta:motivo,presion_arterial:vitales.pa,temperatura:parseFloat(vitales.temperatura)||null,saturacion:parseFloat(vitales.saturacion)||null,frecuencia_respiratoria:parseInt(vitales.fr)||null,peso:parseFloat(vitales.peso)||null,talla:parseFloat(vitales.talla)||null,imc:parseFloat(imc)||null,perimetro_abdominal:parseFloat(vitales.perimetro)||null,evolucion,observaciones:observaciones||null,recomendaciones:recomendaciones||null,requiere_seguimiento:seguimiento,proxima_consulta:seguimiento&&proximaConsulta?proximaConsulta:null,hora_proxima_consulta:seguimiento&&horaConsulta?horaConsulta:null}).select('id').single()
+      if(ate)throw ate
+      // Examen físico regional
+      const efData={atencion_id:at.id}
+      EF_REGIONES.forEach(r=>{efData[r.key]=examenFisico[r.key]||null})
+      await supabase.from('examen_fisico').insert(efData)
+      // Diagnósticos
+      const ds=diagnosticos.filter(d=>d.codigo||d.nombre);if(ds.length)await supabase.from('diagnosticos').insert(ds.map(d=>({atencion_id:at.id,codigo_cie10:d.codigo,nombre_cie10:d.nombre,tipo:d.tipo})))
+      // Guardar exámenes
+      const exRows = []
+      Object.entries(examGrupos).forEach(([tipo, filas]) => {
+        ;(filas || []).forEach(f => {
+          if (f.nombre_examen || f.resultado || f.observacion) {
+            exRows.push({
+              atencion_id: at.id, tipo,
+              nombre_examen: f.nombre_examen || null,
+              resultado: f.resultado || null,
+              observacion: f.observacion || null,
+              fecha_examen: f.fecha_examen || null,
+            })
+          }
+        })
+      })
+      if (exRows.length) await supabase.from('examenes_resultados').insert(exRows)
+      // Tratamientos
+      const ts=tratamientos.filter(t=>t.medicamento);if(ts.length)await supabase.from('tratamientos').insert(ts.map(t=>({atencion_id:at.id,medicamento:t.medicamento,cantidad:t.cantidad,posologia:t.posologia})))
+      setAlert({type:'success',msg:`✓ Atención guardada para ${generales.nombres} ${generales.apellidos}.`})
+      window.scrollTo({top:0,behavior:'smooth'});setTimeout(()=>onSaved(),1200)
+    }catch(err){setAlert({type:'error',msg:`Error al guardar: ${err.message}`})}
+    finally{setSaving(false)}
+  }
+
+  return(
     <div>
       <div className="page-header">
-        <div className="page-title">
-          <Calendar size={22} />
-          Agenda de Citas
-          <span className="page-title-badge">Calendario</span>
-        </div>
-        <div className="page-subtitle">Visualiza atenciones y seguimientos programados por fecha</div>
-        <div style={{marginTop:10}}>
-          <button
-            className="btn btn-ghost"
-            onClick={() => setConfirmLimpiar(true)}
-            style={{fontSize:12, color:'var(--danger)', borderColor:'#FEB2B2', display:'flex', alignItems:'center', gap:6}}>
-            🗑️ Limpiar registros de agenda del mes
-          </button>
-        </div>
+        <div className="page-title"><Activity size={22}/>Nueva Atención Médica<span className="page-title-badge">Clínica</span></div>
+        <div className="page-subtitle">Complete los datos del paciente y la atención médica</div>
       </div>
+      {alert&&(<div className={`alert ${alert.type==='success'?'alert-success':'alert-error'}`} style={{marginBottom:16}}>{alert.type==='success'?<CheckCircle size={16}/>:<AlertTriangle size={16}/>}{alert.msg}</div>)}
+      <div className="section-stack">
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
-        {[
-          { label: 'Atenciones en el mes', value: totalMes, color: '#0B4F71', bg: '#EBF8FF' },
-          { label: 'Seguimientos programados', value: seguimientosMes, color: '#2F855A', bg: '#F0FFF4' },
-          { label: 'Día seleccionado', value: diaSeleccionado ? citasDiaSeleccionado.length : '—', color: '#553C9A', bg: '#FAF5FF' },
-        ].map((s, i) => (
-          <div key={i} className="card" style={{ padding: '14px 18px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: 4 }}>{s.label}</div>
-            <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-display)', color: s.color }}>{s.value}</div>
+        {/* Fecha */}
+        <Section icon={Calendar} title="Fecha de Atención">
+          <div className="form-grid form-grid-4">
+            <div className="form-group"><label className="form-label required">Fecha de la atención</label><input type="date" className="form-input" value={fecha} onChange={e=>setFecha(e.target.value)}/></div>
           </div>
-        ))}
-      </div>
+        </Section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 16 }}>
-
-        {/* ── Calendario ── */}
-        <div className="card">
-          <div className="card-header" style={{ justifyContent: 'space-between' }}>
-            <button onClick={mesAnterior} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: 'var(--primary)' }}>
-              <ChevronLeft size={20} />
-            </button>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, color: 'var(--primary)' }}>
-              {MESES[mes]} {anio}
+        {/* Datos Generales */}
+        <Section icon={User} title="Datos Generales del Paciente" subtitle="Información personal y de contacto">
+          <div className="form-grid form-grid-3">
+            <div className="form-group"><label className="form-label required">Nombres</label><input className="form-input" value={generales.nombres} onChange={e=>setGen('nombres',e.target.value)} placeholder="Nombres del paciente"/></div>
+            <div className="form-group"><label className="form-label required">Apellidos</label><input className="form-input" value={generales.apellidos} onChange={e=>setGen('apellidos',e.target.value)} placeholder="Apellidos del paciente"/></div>
+            <div className="form-group">
+              <label className="form-label">Número de Cédula</label>
+              <div className="pos-relative">
+                <input className="form-input" value={generales.cedula} onChange={e=>setGen('cedula',e.target.value.replace(/\D/g,''))} placeholder="0912345678" maxLength={10} style={{paddingRight:36,borderColor:cedulaEncontrado?'var(--accent)':undefined}}/>
+                <div style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)'}}>
+                  {cedulaBuscando&&<span className="loading-spinner" style={{borderTopColor:'var(--primary)',borderColor:'var(--border)',width:14,height:14}}/>}
+                  {!cedulaBuscando&&cedulaEncontrado&&<span style={{color:'var(--accent)',fontSize:16}}>✓</span>}
+                </div>
+              </div>
+              {cedulaEncontrado&&<div style={{fontSize:11,color:'var(--accent)',marginTop:3,fontWeight:600}}>✓ Paciente encontrado — datos precargados</div>}
             </div>
-            <button onClick={mesSiguiente} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: 'var(--primary)' }}>
-              <ChevronRight size={20} />
-            </button>
+            <div className="form-group"><label className="form-label">Fecha de Nacimiento</label><input type="date" className="form-input" value={generales.fecha_nacimiento} onChange={e=>setGen('fecha_nacimiento',e.target.value)}/></div>
+            <div className="form-group"><label className="form-label">Edad (años)</label><input type="number" className="form-input" value={generales.edad} onChange={e=>setGen('edad',e.target.value)} placeholder="Se calcula automáticamente" style={generales.fecha_nacimiento?{background:'var(--surface-2)'}:{}} readOnly={!!generales.fecha_nacimiento}/></div>
+            <div className="form-group"><label className="form-label">Sexo</label><select className="form-select" value={generales.sexo} onChange={e=>setGen('sexo',e.target.value)}><option value="">Seleccionar</option><option value="Masculino">Masculino</option><option value="Femenino">Femenino</option><option value="Otro">Otro</option></select></div>
+            <div className="form-group"><label className="form-label">Estado Civil</label><select className="form-select" value={generales.estado_civil} onChange={e=>setGen('estado_civil',e.target.value)}><option value="">Seleccionar</option><option>Soltero/a</option><option>Casado/a</option><option>Unión libre</option><option>Divorciado/a</option><option>Viudo/a</option><option>Separado/a</option></select></div>
+            <div className="form-group"><label className="form-label">Grupo Sanguíneo</label><select className="form-select" value={generales.grupo_sanguineo} onChange={e=>setGen('grupo_sanguineo',e.target.value)}><option value="">Seleccionar</option>{['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(g=><option key={g}>{g}</option>)}</select></div>
+            <div className="form-group"><label className="form-label">Teléfono</label><input className="form-input" value={generales.telefono} onChange={e=>setGen('telefono',e.target.value)} placeholder="0991234567"/></div>
+            <div className="form-group"><label className="form-label">Correo Electrónico</label><input type="email" className="form-input" value={generales.correo} onChange={e=>setGen('correo',e.target.value)} placeholder="paciente@email.com"/></div>
+            <div className="form-group"><label className="form-label">Ocupación</label><input className="form-input" value={generales.ocupacion} onChange={e=>setGen('ocupacion',e.target.value)} placeholder="Cargo o función"/></div>
+            <div className="form-group col-span-3"><label className="form-label">Dirección Domiciliaria</label><input className="form-input" value={generales.direccion} onChange={e=>setGen('direccion',e.target.value)} placeholder="Calle, número, sector, ciudad"/></div>
           </div>
+        </Section>
 
-          <div className="card-body" style={{ padding: '12px 16px' }}>
-            {/* Header días */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4, marginBottom: 8 }}>
-              {DIAS_SEMANA.map(d => (
-                <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', padding: '4px 0' }}>{d}</div>
+        {/* Antecedentes */}
+        <Section icon={Heart} title="Antecedentes Personales" subtitle="Historial médico personal" color="#D69E2E">
+          <div className="form-grid form-grid-3">
+            <div className="form-group"><label className="form-label">Antecedentes Patológicos Personales</label><textarea className="form-textarea" value={antecedentes.patologicos} onChange={e=>setAnt('patologicos',e.target.value)} placeholder="HTA, DM2, asma..."/></div>
+            <div className="form-group"><label className="form-label">Antecedentes Alérgicos</label><textarea className="form-textarea" value={antecedentes.alergicos} onChange={e=>setAnt('alergicos',e.target.value)} placeholder="Alergias a medicamentos..."/></div>
+            <div className="form-group"><label className="form-label">Antecedentes Quirúrgicos</label><textarea className="form-textarea" value={antecedentes.quirurgicos} onChange={e=>setAnt('quirurgicos',e.target.value)} placeholder="Cirugías previas y año..."/></div>
+          </div>
+        </Section>
+
+        <Section icon={Users} title="Antecedentes Patológicos Familiares" subtitle="Historial de enfermedades en familia directa" color="#744210">
+          <div className="form-group"><textarea className="form-textarea" value={antecedentes.familiares} onChange={e=>setAnt('familiares',e.target.value)} placeholder="Padre: HTA, Madre: DM2..." style={{minHeight:70}}/></div>
+        </Section>
+
+        {(generales.sexo==='Femenino'||generales.sexo==='')&&(
+          <Section icon={Baby} title="Antecedentes Ginecobstétricos" subtitle="Solo aplica para pacientes femeninas" color="#97266D">
+            <div className="form-grid form-grid-5">
+              {[['gestas','Gestas'],['partos','Partos Vaginales'],['cesareas','Cesáreas'],['abortos','Abortos']].map(([k,l])=>(
+                <div key={k} className="form-group"><label className="form-label">{l}</label><input type="number" className="form-input" value={antecedentes[k]} onChange={e=>setAnt(k,e.target.value)} placeholder="0" min={0}/></div>
               ))}
+              <div className="form-group"><label className="form-label">Método de Planificación</label><select className="form-select" value={antecedentes.planificacion} onChange={e=>setAnt('planificacion',e.target.value)}><option value="">Ninguno</option><option>ACO (Píldora)</option><option>DIU</option><option>Preservativo</option><option>Implante</option><option>Inyectable</option><option>Ligadura de trompas</option><option>Otro</option></select></div>
             </div>
+          </Section>
+        )}
 
-            {/* Grid días */}
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-                <div className="loading-spinner" style={{ borderTopColor: 'var(--primary)', borderColor: 'var(--border)', width: 24, height: 24, margin: '0 auto 8px' }} />
-                Cargando...
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
-                {celdas.map((d, i) => {
-                  if (!d) return <div key={`e-${i}`} />
-                  const citasD = citasDelDia(d)
-                  const atenciones = citasD.filter(c => c.fecha_atencion === fechaStr(d))
-                  const seguimientos = citasD.filter(c => c.proxima_consulta === fechaStr(d))
-                  const seleccionado = diaSeleccionado === d
-                  const hoyFlag = esHoy(d)
+        {/* Motivo */}
+        <Section icon={FileText} title="Motivo de Consulta" color="#2B6CB0">
+          <div className="form-group"><label className="form-label required">Motivo de consulta</label><textarea className="form-textarea" value={motivo} onChange={e=>setMotivo(e.target.value)} placeholder="Describa el motivo principal de la consulta..." style={{minHeight:80}}/></div>
+        </Section>
 
-                  return (
-                    <div key={d}
-                      onClick={() => setDiaSeleccionado(seleccionado ? null : d)}
-                      style={{
-                        minHeight: 72,
-                        borderRadius: 10,
-                        padding: '6px 8px',
-                        cursor: 'pointer',
-                        background: seleccionado ? 'var(--primary)' : hoyFlag ? '#EBF8FF' : 'var(--surface-2)',
-                        border: seleccionado ? '2px solid var(--primary)' : hoyFlag ? '2px solid var(--secondary)' : '1.5px solid var(--border-light)',
-                        transition: 'all 0.15s',
-                        position: 'relative',
-                      }}
-                    >
-                      <div style={{
-                        fontFamily: 'var(--font-display)',
-                        fontWeight: hoyFlag || seleccionado ? 700 : 500,
-                        fontSize: 14,
-                        color: seleccionado ? 'white' : hoyFlag ? 'var(--secondary)' : 'var(--text-primary)',
-                        marginBottom: 4,
-                      }}>{d}</div>
-
-                      {atenciones.length > 0 && (
-                        <div style={{
-                          background: seleccionado ? 'rgba(255,255,255,0.25)' : 'var(--primary)',
-                          color: 'white',
-                          fontSize: 10,
-                          fontWeight: 700,
-                          padding: '2px 5px',
-                          borderRadius: 8,
-                          marginBottom: 2,
-                          display: 'inline-block',
-                        }}>
-                          {atenciones.length} atenc.
-                        </div>
-                      )}
-
-                      {seguimientos.length > 0 && (
-                        <div style={{
-                          background: seleccionado ? 'rgba(255,255,255,0.25)' : 'var(--accent)',
-                          color: 'white',
-                          fontSize: 10,
-                          fontWeight: 700,
-                          padding: '2px 5px',
-                          borderRadius: 8,
-                          display: 'inline-block',
-                          marginLeft: atenciones.length ? 2 : 0,
-                        }}>
-                          {seguimientos.length} seg.
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+        {/* Signos Vitales — SIN estado de consciencia */}
+        <Section icon={Activity} title="Signos Vitales" subtitle="Parámetros fisiológicos del paciente" color="#2F855A">
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(120px,1fr))',gap:12}}>
+            {[{key:'pa',label:'Presión Arterial',unit:'mmHg',placeholder:'120/80'},{key:'temperatura',label:'Temperatura',unit:'°C',placeholder:'36.5'},{key:'saturacion',label:'Saturación O₂',unit:'%',placeholder:'98'},{key:'fr',label:'Frec. Respiratoria',unit:'rpm',placeholder:'18'},{key:'peso',label:'Peso',unit:'kg',placeholder:'70'},{key:'talla',label:'Talla',unit:'cm',placeholder:'170'},{key:'perimetro',label:'Perím. Abdominal',unit:'cm',placeholder:'85'}].map(({key,label,unit,placeholder})=>(
+              <div key={key} className="vital-card">
+                <div className="vital-card-label">{label}</div>
+                <input value={vitales[key]} onChange={e=>setVit(key,e.target.value)} placeholder={placeholder}/>
+                <div className="vital-card-unit">{unit}</div>
               </div>
-            )}
-
-            {/* Leyenda */}
-            <div style={{ display: 'flex', gap: 16, marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
-                <div style={{ width: 12, height: 12, borderRadius: 3, background: 'var(--primary)' }} />
-                Atención médica
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
-                <div style={{ width: 12, height: 12, borderRadius: 3, background: 'var(--accent)' }} />
-                Seguimiento programado
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
-                <div style={{ width: 12, height: 12, borderRadius: 3, background: '#EBF8FF', border: '2px solid var(--secondary)' }} />
-                Hoy
-              </div>
+            ))}
+            <div className="vital-card" style={{background:'var(--accent-soft)',borderColor:'rgba(0,201,167,0.3)'}}>
+              <div className="vital-card-label">IMC</div>
+              <input value={imc||'—'} readOnly style={{color:'var(--accent)',cursor:'default'}}/>
+              <div className="vital-card-unit">{imcClass||'kg/m²'}</div>
             </div>
           </div>
+        </Section>
+
+        {/* Examen Físico Regional — nuevo */}
+        <Section icon={Eye} title="Examen Físico Regional" subtitle="Deje en blanco = Normal. Escriba si hay hallazgos." color="#2C7A7B">
+          <ExamenFisicoRegional value={examenFisico} onChange={setExamenFisico}/>
+        </Section>
+
+        {/* Evolución */}
+        <Section icon={Clipboard} title="Evolución del Paciente" subtitle="Descripción clínica y seguimiento" color="#553C9A">
+          <div className="form-group"><label className="form-label">Evolución</label><textarea className="form-textarea" value={evolucion} onChange={e=>setEvolucion(e.target.value)} placeholder="Descripción de la evolución clínica, hallazgos al examen físico..." style={{minHeight:120}}/></div>
+        </Section>
+
+        {/* Diagnóstico CIE-10 */}
+        <Section icon={Search} title="Diagnóstico CIE-10" subtitle="Búsqueda automática — escriba código o nombre en español" color="#2B6CB0">
+          <div className="section-stack">
+            {diagnosticos.map(diag=>(
+              <div key={diag.id} className="diagnostico-row">
+                <div className="form-group"><input className="form-input" value={diag.codigo} onChange={e=>setDiagField(diag.id,'codigo',e.target.value.toUpperCase())} placeholder="J45.9" style={{fontWeight:700,fontFamily:'var(--font-display)'}}/></div>
+                <div className="pos-relative"><CIE10Search value={diag.nombre} onChange={v=>setDiagField(diag.id,'nombre',v)} onSelect={r=>{setDiagField(diag.id,'nombre',r.name);setDiagField(diag.id,'codigo',r.code)}}/></div>
+                <div style={{display:'flex',justifyContent:'center'}}><button className={`tipo-badge ${diag.tipo}`} onClick={()=>setDiagField(diag.id,'tipo',diag.tipo==='definitivo'?'presuntivo':'definitivo')}>{diag.tipo==='definitivo'?'● Definitivo':'◌ Presuntivo'}</button></div>
+                {diagnosticos.length>1&&<button className="btn-danger-ghost" onClick={()=>removeDiag(diag.id)}><Trash2 size={15}/></button>}
+              </div>
+            ))}
+            <button className="btn-add" onClick={addDiag}><Plus size={14}/> Agregar diagnóstico</button>
+          </div>
+        </Section>
+
+        {/* Resultados de Exámenes */}
+        <ExamenesSection examGrupos={examGrupos} setExamGrupos={setExamGrupos}/>
+
+        {/* Tratamiento */}
+        <Section icon={Heart} title="Tratamiento" subtitle="Búsqueda de fármacos con presentaciones" color="#E53E3E">
+          <div style={{marginBottom:8,display:'grid',gridTemplateColumns:'1fr 100px 1fr 36px',gap:8}}>
+            {['Medicamento / Presentación','Cantidad','Posología',''].map((h,i)=>(<div key={i} style={{fontSize:11,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',paddingLeft:12}}>{h}</div>))}
+          </div>
+          <div className="section-stack">
+            {tratamientos.map(trat=>(
+              <div key={trat.id} className="tratamiento-row">
+                <FarmacoSearch value={trat.medicamento} onChange={v=>setTratField(trat.id,'medicamento',v)} onSelect={r=>setTratField(trat.id,'medicamento',r.full)}/>
+                <input className="form-input" value={trat.cantidad} onChange={e=>setTratField(trat.id,'cantidad',e.target.value)} placeholder="10 tab."/>
+                <input className="form-input" value={trat.posologia} onChange={e=>setTratField(trat.id,'posologia',e.target.value)} placeholder="1 tab. cada 8h por 3 días"/>
+                {tratamientos.length>1&&<button className="btn-danger-ghost" onClick={()=>removeTrat(trat.id)}><Trash2 size={15}/></button>}
+              </div>
+            ))}
+            <button className="btn-add" onClick={addTrat}><Plus size={14}/> Agregar medicamento</button>
+          </div>
+          {/* Observaciones y Recomendaciones */}
+          <div style={{marginTop:20,borderTop:'1.5px dashed var(--border-light)',paddingTop:16,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+            <div className="form-group">
+              <label className="form-label" style={{display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:15}}>📝</span> Observaciones</label>
+              <textarea className="form-textarea" value={observaciones} onChange={e=>setObservaciones(e.target.value)} placeholder="Observaciones clínicas adicionales, notas del médico..." style={{minHeight:90}}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{display:'flex',alignItems:'center',gap:6}}><span style={{fontSize:15}}>💡</span> Recomendaciones</label>
+              <textarea className="form-textarea" value={recomendaciones} onChange={e=>setRecomendaciones(e.target.value)} placeholder="Reposo, dieta, actividad física, evitar exposición a ruido, usar EPP..." style={{minHeight:90}}/>
+            </div>
+          </div>
+        </Section>
+
+        {/* Seguimiento */}
+        <div className="seguimiento-panel">
+          <div>
+            <div style={{fontFamily:'var(--font-display)',fontWeight:600,color:'var(--primary)',marginBottom:4,display:'flex',alignItems:'center',gap:8}}><Clock size={16}/> Seguimiento del paciente</div>
+            <div style={{fontSize:13,color:'var(--text-muted)'}}>¿Requiere próxima consulta de seguimiento?</div>
+          </div>
+          <label className="toggle-switch"><input type="checkbox" checked={seguimiento} onChange={e=>setSeguimiento(e.target.checked)}/><span className="toggle-slider"/></label>
+          {seguimiento&&(
+            <div style={{display:'flex',gap:10,flex:1,flexWrap:'wrap'}}>
+              <div className="form-group" style={{minWidth:180}}>
+                <label className="form-label">📅 Fecha próxima consulta</label>
+                <input type="date" className="form-input" value={proximaConsulta} onChange={e=>setProximaConsulta(e.target.value)} min={today}/>
+              </div>
+              <div className="form-group" style={{minWidth:140}}>
+                <label className="form-label">🕐 Hora de la cita</label>
+                <input type="time" className="form-input" value={horaConsulta} onChange={e=>setHoraConsulta(e.target.value)}/>
+              </div>
+              {proximaConsulta&&(
+                <div style={{alignSelf:'flex-end',padding:'8px 14px',background:'rgba(0,201,167,0.15)',borderRadius:10,fontSize:13,fontWeight:600,color:'var(--accent)',whiteSpace:'nowrap',marginBottom:2}}>
+                  {new Date(proximaConsulta+'T00:00:00').toLocaleDateString('es-EC',{weekday:'short',day:'2-digit',month:'short'})}
+                  {horaConsulta&&` · ${horaConsulta}`}
+                </div>
+              )}
+            </div>
+          )}
+          <div style={{marginLeft:'auto'}}><button className="btn-save" onClick={handleSave} disabled={saving}>{saving?<span className="loading-spinner"/>:<Save size={18}/>}{saving?'Guardando...':'Guardar Atención'}</button></div>
         </div>
 
-        {/* ── Panel lateral ── */}
-        <div className="card" style={{ height: 'fit-content', position: 'sticky', top: 100 }}>
-          <div className="card-header">
-            <div className="card-header-icon"><Calendar size={16} /></div>
-            <div>
-              <div className="card-header-title">
-                {diaSeleccionado
-                  ? formatFecha(fechaStr(diaSeleccionado))
-                  : 'Selecciona un día'}
-              </div>
-              <div className="card-header-sub">
-                {diaSeleccionado ? `${citasDiaSeleccionado.length} registro(s)` : 'Click en cualquier día del calendario'}
-              </div>
-            </div>
-          </div>
-
-          <div className="card-body" style={{ padding: '12px 16px' }}>
-            {!diaSeleccionado && (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-                <Calendar size={40} color="var(--border)" style={{ margin: '0 auto 12px' }} />
-                <div style={{ fontSize: 13 }}>Haz click en un día para ver sus registros</div>
-              </div>
-            )}
-
-            {diaSeleccionado && citasDiaSeleccionado.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
-                <div style={{ fontSize: 13 }}>Sin registros para este día</div>
-              </div>
-            )}
-
-            {diaSeleccionado && citasDiaSeleccionado.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {citasDiaSeleccionado.map(c => {
-                  const esSeguimiento = c.proxima_consulta === fechaStr(diaSeleccionado)
-                  const esAtencion = c.fecha_atencion === fechaStr(diaSeleccionado)
-                  const p = c.pacientes || {}
-
-                  return (
-                    <div key={c.id} style={{
-                      background: esSeguimiento && !esAtencion ? 'var(--accent-soft)' : 'var(--surface-2)',
-                      border: `1.5px solid ${esSeguimiento && !esAtencion ? 'rgba(0,201,167,0.3)' : 'var(--border-light)'}`,
-                      borderRadius: 10,
-                      padding: 12,
-                    }}>
-                      {/* Tipo badge */}
-                      <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-                        {esAtencion && (
-                          <span style={{ background: 'var(--primary)', color: 'white', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 12 }}>
-                            🩺 Atención
-                          </span>
-                        )}
-                        {esSeguimiento && (
-                          <span style={{ background: 'var(--accent)', color: 'white', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 12 }}>
-                            📅 Seguimiento{c.hora_proxima_consulta ? ` · ${c.hora_proxima_consulta.substring(0,5)}` : ''}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Paciente */}
-                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>
-                        {p.nombres} {p.apellidos}
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                        {p.cedula && (
-                          <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <User size={11} /> CI: {p.cedula}
-                          </div>
-                        )}
-                        {p.telefono && (
-                          <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <Phone size={11} /> {p.telefono}
-                          </div>
-                        )}
-                        {p.ocupacion && (
-                          <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <Briefcase size={11} /> {p.ocupacion}
-                          </div>
-                        )}
-                        {c.motivo_consulta && (
-                          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, fontStyle: 'italic' }}>
-                            "{c.motivo_consulta.substring(0, 80)}{c.motivo_consulta.length > 80 ? '...' : ''}"
-                          </div>
-                        )}
-                        {c.diagnosticos?.length > 0 && (
-                          <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                            {c.diagnosticos.map((d, i) => (
-                              <span key={i} style={{ background: '#EBF8FF', color: '#2B6CB0', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 8 }}>
-                                {d.codigo_cie10}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => setDetalle(c)}
-                        style={{ marginTop: 10, width: '100%', padding: '7px', background: 'white', border: '1.5px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                        <Eye size={13} /> Ver detalle completo
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
       </div>
-
-      {/* ── Modal detalle ── */}
-      {detalle && (
-        <div className="modal-overlay" onClick={() => setDetalle(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <div className="modal-title">{detalle.pacientes?.nombres} {detalle.pacientes?.apellidos}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-                  Atención: {formatFecha(detalle.fecha_atencion)}
-                  {detalle.proxima_consulta && ` · Seguimiento: ${formatFecha(detalle.proxima_consulta)}`}
-                </div>
-              </div>
-              <button onClick={() => setDetalle(null)} className="btn btn-ghost" style={{ padding: 8 }}>
-                <X size={18} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-                <div>
-                  <DetalleSeccion titulo="👤 Paciente">
-                    <DetalleRow label="Nombre" value={`${detalle.pacientes?.nombres} ${detalle.pacientes?.apellidos}`} />
-                    <DetalleRow label="Cédula" value={detalle.pacientes?.cedula} />
-                    <DetalleRow label="Edad" value={detalle.pacientes?.edad ? `${detalle.pacientes.edad} años` : null} />
-                    <DetalleRow label="Sexo" value={detalle.pacientes?.sexo} />
-                    <DetalleRow label="Teléfono" value={detalle.pacientes?.telefono} />
-                    <DetalleRow label="Ocupación" value={detalle.pacientes?.ocupacion} />
-                  </DetalleSeccion>
-
-                  <DetalleSeccion titulo="🔬 Signos Vitales">
-                    <DetalleRow label="Presión arterial" value={detalle.presion_arterial} />
-                    <DetalleRow label="Temperatura" value={detalle.temperatura ? `${detalle.temperatura}°C` : null} />
-                    <DetalleRow label="Saturación O₂" value={detalle.saturacion ? `${detalle.saturacion}%` : null} />
-                    <DetalleRow label="Frec. Respiratoria" value={detalle.frecuencia_respiratoria ? `${detalle.frecuencia_respiratoria} rpm` : null} />
-                    <DetalleRow label="Peso / Talla" value={detalle.peso && detalle.talla ? `${detalle.peso}kg / ${detalle.talla}cm` : null} />
-                    <DetalleRow label="IMC" value={detalle.imc ? `${detalle.imc} kg/m²` : null} />
-                    <DetalleRow label="Consciencia" value={detalle.estado_consciencia} />
-                  </DetalleSeccion>
-                </div>
-
-                <div>
-                  <DetalleSeccion titulo="📋 Motivo de Consulta">
-                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{detalle.motivo_consulta || '—'}</p>
-                  </DetalleSeccion>
-
-                  <DetalleSeccion titulo="🏷 Diagnósticos">
-                    {detalle.diagnosticos?.length ? detalle.diagnosticos.map((d, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-                        <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: 13, minWidth: 56 }}>{d.codigo_cie10}</span>
-                        <div>
-                          <div style={{ fontSize: 13 }}>{d.nombre_cie10}</div>
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 8, background: d.tipo === 'definitivo' ? '#EBF8FF' : '#FFFFF0', color: d.tipo === 'definitivo' ? '#2B6CB0' : '#744210' }}>{d.tipo}</span>
-                        </div>
-                      </div>
-                    )) : <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Sin diagnósticos</p>}
-                  </DetalleSeccion>
-
-                  {detalle.proxima_consulta && (
-                    <div style={{ padding: 12, background: 'var(--accent-soft)', borderRadius: 10, border: '1px solid rgba(0,201,167,0.2)', marginTop: 12 }}>
-                      <div style={{ fontWeight: 700, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Clock size={14} /> Próxima consulta programada
-                      </div>
-                      <div style={{ fontSize: 14, marginTop: 4, color: 'var(--text-primary)', fontWeight: 600 }}>
-                        📅 {formatFecha(detalle.proxima_consulta)}
-                        {detalle.hora_proxima_consulta && (
-                          <span style={{ marginLeft: 10, color: 'var(--secondary)' }}>
-                            🕐 {detalle.hora_proxima_consulta.substring(0,5)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal confirmar limpiar */}
-      {confirmLimpiar && (
-        <div className="modal-overlay" onClick={() => setConfirmLimpiar(false)}>
-          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title" style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                🗑️ Limpiar Registros de Agenda
-              </div>
-              <button onClick={() => setConfirmLimpiar(false)} className="btn btn-ghost" style={{ padding: 8 }}>
-                <X size={18} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <div style={{ background: 'var(--danger-soft)', border: '1px solid #FEB2B2', borderRadius: 10, padding: 14, marginBottom: 16 }}>
-                <p style={{ fontSize: 14, color: 'var(--danger)', fontWeight: 600, marginBottom: 6 }}>⚠️ Esta acción no se puede deshacer</p>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Se eliminarán todos los registros de la <strong>Lista del Día</strong> del mes de <strong style={{textTransform:'capitalize'}}>{MESES_FULL[mes]} {anio}</strong>.
-                </p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-                  Nota: esto solo borra la lista de pacientes programados, no las historias clínicas ni atenciones médicas.
-                </p>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                <button className="btn btn-ghost" onClick={() => setConfirmLimpiar(false)}>Cancelar</button>
-                <button className="btn" style={{ background: 'var(--danger)', color: 'white' }}
-                  onClick={limpiarMes} disabled={limpiando}>
-                  {limpiando ? <span className="loading-spinner" /> : '🗑️'}
-                  {limpiando ? 'Limpiando...' : 'Sí, limpiar agenda'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function DetalleSeccion({ titulo, children }) {
-  return (
-    <div style={{ marginBottom: 18 }}>
-      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, color: 'var(--primary)', fontSize: 13, marginBottom: 8, paddingBottom: 4, borderBottom: '2px solid var(--accent)', display: 'inline-block' }}>{titulo}</div>
-      {children}
-    </div>
-  )
-}
-
-function DetalleRow({ label, value }) {
-  return (
-    <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', minWidth: 140 }}>{label}</span>
-      <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>{value || '—'}</span>
     </div>
   )
 }
