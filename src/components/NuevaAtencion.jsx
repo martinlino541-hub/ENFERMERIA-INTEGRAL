@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { User, Calendar, Heart, AlertTriangle, Users, Baby, FileText, Activity,
   Clipboard, Plus, Trash2, Save, CheckCircle, Search, Clock, Eye, FlaskConical } from 'lucide-react'
 import { supabase } from '../supabaseClient'
+import { useAuth } from '../context/AuthContext'
 
 /* ══ SECTION COMPONENT ══ */
 function Section({ icon: Icon, title, subtitle, color = 'var(--primary)', children }) {
@@ -598,6 +599,7 @@ const emptyTrat=()=>({id:Date.now()+Math.random(),medicamento:'',cantidad:'',pos
 
 /* ══ MAIN COMPONENT ══ */
 export default function NuevaAtencion({onSaved}){
+  const { user } = useAuth()
   const today=new Date().toISOString().split('T')[0]
   const[saving,setSaving]=useState(false)
   const[alert,setAlert]=useState(null)
@@ -666,11 +668,11 @@ export default function NuevaAtencion({onSaved}){
     try{
       let pacienteId=null
       if(generales.cedula){const{data:ex}=await supabase.from('pacientes').select('id').eq('cedula',generales.cedula).single();if(ex){pacienteId=ex.id;await supabase.from('pacientes').update({nombres:generales.nombres,apellidos:generales.apellidos,telefono:generales.telefono,edad:parseInt(generales.edad)||null,sexo:generales.sexo,ocupacion:generales.ocupacion,fecha_nacimiento:generales.fecha_nacimiento||null,estado_civil:generales.estado_civil||null,direccion:generales.direccion||null,correo:generales.correo||null,grupo_sanguineo:generales.grupo_sanguineo||null}).eq('id',pacienteId)}}
-      if(!pacienteId){const{data:np,error:pe}=await supabase.from('pacientes').insert({nombres:generales.nombres,apellidos:generales.apellidos,cedula:generales.cedula||null,telefono:generales.telefono,edad:parseInt(generales.edad)||null,sexo:generales.sexo,ocupacion:generales.ocupacion,fecha_nacimiento:generales.fecha_nacimiento||null,estado_civil:generales.estado_civil||null,direccion:generales.direccion||null,correo:generales.correo||null,grupo_sanguineo:generales.grupo_sanguineo||null}).select('id').single();if(pe)throw pe;pacienteId=np.id}
+      if(!pacienteId){const{data:np,error:pe}=await supabase.from('pacientes').insert({nombres:generales.nombres,apellidos:generales.apellidos,cedula:generales.cedula||null,telefono:generales.telefono,edad:parseInt(generales.edad)||null,sexo:generales.sexo,ocupacion:generales.ocupacion,fecha_nacimiento:generales.fecha_nacimiento||null,estado_civil:generales.estado_civil||null,direccion:generales.direccion||null,correo:generales.correo||null,grupo_sanguineo:generales.grupo_sanguineo||null,user_id:user.id}).select('id').single();if(pe)throw pe;pacienteId=np.id}
       const{data:ae}=await supabase.from('antecedentes').select('id').eq('paciente_id',pacienteId).single()
       const ad={paciente_id:pacienteId,patologicos_personales:antecedentes.patologicos,alergicos:antecedentes.alergicos,quirurgicos:antecedentes.quirurgicos,patologicos_familiares:antecedentes.familiares,gestas:parseInt(antecedentes.gestas)||null,partos_vaginales:parseInt(antecedentes.partos)||null,cesareas:parseInt(antecedentes.cesareas)||null,abortos:parseInt(antecedentes.abortos)||null,metodo_planificacion:antecedentes.planificacion}
       if(ae){await supabase.from('antecedentes').update(ad).eq('id',ae.id)}else{await supabase.from('antecedentes').insert(ad)}
-      const{data:at,error:ate}=await supabase.from('atenciones').insert({paciente_id:pacienteId,fecha_atencion:fecha,motivo_consulta:motivo,presion_arterial:vitales.pa,temperatura:parseFloat(vitales.temperatura)||null,saturacion:parseFloat(vitales.saturacion)||null,frecuencia_respiratoria:parseInt(vitales.fr)||null,peso:parseFloat(vitales.peso)||null,talla:parseFloat(vitales.talla)||null,imc:parseFloat(imc)||null,perimetro_abdominal:parseFloat(vitales.perimetro)||null,evolucion,observaciones:observaciones||null,recomendaciones:recomendaciones||null,requiere_seguimiento:seguimiento,proxima_consulta:seguimiento&&proximaConsulta?proximaConsulta:null,hora_proxima_consulta:seguimiento&&horaConsulta?horaConsulta:null}).select('id').single()
+      const{data:at,error:ate}=await supabase.from('atenciones').insert({paciente_id:pacienteId,user_id:user.id,fecha_atencion:fecha,motivo_consulta:motivo,presion_arterial:vitales.pa,temperatura:parseFloat(vitales.temperatura)||null,saturacion:parseFloat(vitales.saturacion)||null,frecuencia_respiratoria:parseInt(vitales.fr)||null,peso:parseFloat(vitales.peso)||null,talla:parseFloat(vitales.talla)||null,imc:parseFloat(imc)||null,perimetro_abdominal:parseFloat(vitales.perimetro)||null,evolucion,observaciones:observaciones||null,recomendaciones:recomendaciones||null,requiere_seguimiento:seguimiento,proxima_consulta:seguimiento&&proximaConsulta?proximaConsulta:null,hora_proxima_consulta:seguimiento&&horaConsulta?horaConsulta:null}).select('id').single()
       if(ate)throw ate
       // Examen físico regional
       const efData={atencion_id:at.id}
