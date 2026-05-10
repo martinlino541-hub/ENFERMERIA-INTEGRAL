@@ -5,6 +5,7 @@ import {
   AlertCircle, Save, X
 } from 'lucide-react'
 import { supabase } from '../supabaseClient'
+import { useAuth } from '../context/AuthContext'
 
 const ESTADOS = ['Pendiente', 'En consulta', 'Atendido', 'No asistió']
 const ESTADO_STYLE = {
@@ -22,6 +23,7 @@ function formatHora(h) {
 }
 
 export default function ListaDia() {
+  const { user } = useAuth()
   const hoy = new Date().toISOString().split('T')[0]
   const [citas, setCitas] = useState([])
   const [loading, setLoading] = useState(true)
@@ -45,6 +47,7 @@ export default function ListaDia() {
       .from('lista_dia')
       .select('*')
       .eq('fecha', hoy)
+      .eq('user_id', user.id)
       .order('orden', { ascending: true })
     if (!error) setCitas(data || [])
     setLoading(false)
@@ -97,6 +100,7 @@ export default function ListaDia() {
         prioridad: nuevaCita.prioridad,
         estado: 'Pendiente',
         orden: maxOrden + 1,
+        user_id: user.id,
       })
       setNuevaCita({ nombres: '', apellidos: '', cedula: '', telefono: '', hora: '', motivo: '', prioridad: 'Normal' })
       setPacienteSeleccionado(null)
