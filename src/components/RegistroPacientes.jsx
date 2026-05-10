@@ -1,21 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Search, Eye, Users, Clock, FileText, X, Heart, Trash2, AlertTriangle, CheckCircle } from 'lucide-react'
+import { Search, Eye, Users, Clock, FileText, X, Heart, Trash2, AlertTriangle, CheckCircle, FlaskConical, Activity } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 
-const EF_SECTIONS = [
-  {key:'piel',label:'Piel',items:[{key:'cicatrices',label:'Cicatrices'},{key:'faneras',label:'Piel y Faneras'}]},
-  {key:'ojos',label:'Ojos',items:[{key:'parpados',label:'Párpados'},{key:'conjuntivas',label:'Conjuntivas'},{key:'pupilas',label:'Pupilas'},{key:'cornea',label:'Córnea'},{key:'motilidad',label:'Motilidad'}]},
-  {key:'oido',label:'Oído',items:[{key:'cae',label:'C. auditivo externo'},{key:'pabellon',label:'Pabellón'},{key:'timpanos',label:'Tímpanos'}]},
-  {key:'oro',label:'Orofaringe',items:[{key:'labios',label:'Labios'},{key:'lengua',label:'Lengua'},{key:'faringe',label:'Faringe'},{key:'amigdalas',label:'Amígdalas'},{key:'dentadura',label:'Dentadura'}]},
-  {key:'nariz',label:'Nariz',items:[{key:'tabique',label:'Tabique'},{key:'cornetes',label:'Cornetes'},{key:'mucosas',label:'Mucosas'},{key:'senos',label:'Senos paranasales'}]},
-  {key:'cuello',label:'Cuello',items:[{key:'tiroides',label:'Tiroides / masas'},{key:'movilidad',label:'Movilidad'}]},
-  {key:'torax',label:'Tórax',items:[{key:'mamas',label:'Mamas'},{key:'corazon',label:'Corazón'}]},
-  {key:'pulm',label:'Tórax/Pulm.',items:[{key:'pulmones',label:'Pulmones'},{key:'corazon',label:'Corazón'},{key:'parrilla',label:'Parrilla costal'}]},
-  {key:'abd',label:'Abdomen',items:[{key:'visceras',label:'Vísceras'},{key:'pared',label:'Pared abdominal'}]},
-  {key:'col',label:'Columna',items:[{key:'flexibilidad',label:'Flexibilidad'},{key:'desviacion',label:'Desviación'},{key:'dolor',label:'Dolor'}]},
-  {key:'pelvis',label:'Pelvis',items:[{key:'pelvis',label:'Pelvis'},{key:'genitales',label:'Genitales'}]},
-  {key:'ext',label:'Extremidades',items:[{key:'vascular',label:'Vascular'},{key:'superiores',label:'Miembros superiores'},{key:'inferiores',label:'Miembros inferiores'}]},
-  {key:'neuro',label:'Neurológico',items:[{key:'fuerza',label:'Fuerza'},{key:'sensibilidad',label:'Sensibilidad'},{key:'marcha',label:'Marcha'},{key:'reflejos',label:'Reflejos osteotendinosos'}]},
+const EF_REGIONES = [
+  { key:'cabeza_cara',             label:'Cabeza y Cara',              emoji:'🧠' },
+  { key:'cuello',                  label:'Cuello',                     emoji:'🦴' },
+  { key:'torax',                   label:'Tórax',                      emoji:'🫁' },
+  { key:'abdomen',                 label:'Abdomen',                    emoji:'🫃' },
+  { key:'extremidades_superiores', label:'Extremidades Superiores (A)',emoji:'💪' },
+  { key:'extremidades_inferiores', label:'Extremidades Inferiores (B)',emoji:'🦵' },
+  { key:'columna_vertebral',       label:'Columna Vertebral',          emoji:'🦴' },
+  { key:'sistema_neurologico',     label:'Sistema Neurológico',        emoji:'🧬' },
+  { key:'piel_anexos',             label:'Piel y Anexos',              emoji:'🩹' },
+  { key:'genitourinario',          label:'Genitourinario',             emoji:'🔵' },
+  { key:'region_rectal',           label:'Región Rectal',              emoji:'🔴' },
 ]
 
 export default function RegistroPacientes() {
@@ -41,8 +39,9 @@ export default function RegistroPacientes() {
         .from('atenciones')
         .select(`
           id, fecha_atencion, motivo_consulta, presion_arterial,
-          temperatura, saturacion, frecuencia_respiratoria, estado_consciencia,
+          temperatura, saturacion, frecuencia_respiratoria,
           peso, talla, imc, perimetro_abdominal, evolucion,
+          observaciones, recomendaciones,
           requiere_seguimiento, proxima_consulta, hora_proxima_consulta,
           pacientes (
             id, nombres, apellidos, cedula, telefono, edad, sexo, ocupacion,
@@ -120,6 +119,7 @@ export default function RegistroPacientes() {
       await supabase.from('diagnosticos').delete().eq('atencion_id', atencionId)
       await supabase.from('tratamientos').delete().eq('atencion_id', atencionId)
       await supabase.from('examen_fisico').delete().eq('atencion_id', atencionId)
+      await supabase.from('examenes_resultados').delete().eq('atencion_id', atencionId)
       await supabase.from('atenciones').delete().eq('id', atencionId)
       if (pacienteId) {
         const { data: otras } = await supabase.from('atenciones').select('id').eq('paciente_id', pacienteId)
@@ -141,8 +141,8 @@ export default function RegistroPacientes() {
   return (
     <div>
       <div className="page-header">
-        <div className="page-title"><Users size={22}/>Registro de Pacientes<span className="page-title-badge">Matriz clínica</span></div>
-        <div className="page-subtitle">Historial completo de atenciones médicas ocupacionales</div>
+        <div className="page-title"><Users size={22}/>Registro de Pacientes<span className="page-title-badge">Historial</span></div>
+        <div className="page-subtitle">Historial completo de atenciones médicas</div>
       </div>
 
       {alertMsg && (
@@ -201,8 +201,7 @@ export default function RegistroPacientes() {
             <thead>
               <tr>
                 <th>Fecha</th><th>Paciente</th><th>Cédula</th><th>Edad</th><th>Sexo</th>
-                <th>Teléfono</th><th>Ocupación</th><th>Motivo de Consulta</th><th>P/A</th>
-                <th>Diagnóstico CIE-10</th><th>Evolución</th><th>Tratamiento</th><th>Próx. Consulta</th><th>Acciones</th>
+                <th>Motivo de Consulta</th><th>Diagnóstico CIE-10</th><th>Próx. Consulta</th><th>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -215,24 +214,14 @@ export default function RegistroPacientes() {
                     <td style={{fontFamily:'var(--font-display)',fontSize:12}}>{p.cedula||'—'}</td>
                     <td style={{textAlign:'center'}}>{p.edad?`${p.edad}a`:'—'}</td>
                     <td>{p.sexo?<span className={`table-badge ${p.sexo==='Masculino'?'badge-m':'badge-f'}`}>{p.sexo==='Masculino'?'♂':'♀'} {p.sexo}</span>:'—'}</td>
-                    <td style={{fontSize:12}}>{p.telefono||'—'}</td>
-                    <td style={{fontSize:12,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.ocupacion||'—'}</td>
-                    <td style={{maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:12}}>{r.motivo_consulta||'—'}</td>
-                    <td style={{fontSize:12,fontWeight:600,whiteSpace:'nowrap'}}>{r.presion_arterial||'—'}</td>
-                    <td>{(r.diagnosticos||[]).length?r.diagnosticos.map(d=>(
-                      <div key={d.id} style={{marginBottom:4}}>
-                        <span className={`table-badge ${d.tipo==='definitivo'?'badge-def':'badge-pre'}`}>{d.codigo_cie10}</span>
-                        <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>{d.nombre_cie10}</div>
-                      </div>
-                    )):'—'}</td>
-                    <td style={{maxWidth:180,fontSize:12}}>{r.evolucion?<span title={r.evolucion}>{r.evolucion.substring(0,60)}{r.evolucion.length>60?'...':''}</span>:'—'}</td>
-                    <td>{(r.tratamientos||[]).length?r.tratamientos.map(t=>(
-                      <div key={t.id} style={{fontSize:11,marginBottom:3}}>
-                        <strong>{t.medicamento}</strong>
-                        {t.cantidad&&<span style={{color:'var(--text-muted)'}}> · {t.cantidad}</span>}
-                        {t.posologia&&<div style={{color:'var(--text-muted)',fontSize:10}}>{t.posologia}</div>}
-                      </div>
-                    )):'—'}</td>
+                    <td style={{maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:12}}>{r.motivo_consulta||'—'}</td>
+                    <td>
+                      {(r.diagnosticos||[]).length ? r.diagnosticos.slice(0,2).map(d=>(
+                        <div key={d.id} style={{marginBottom:2}}>
+                          <span className={`table-badge ${d.tipo==='definitivo'?'badge-def':'badge-pre'}`}>{d.codigo_cie10}</span>
+                        </div>
+                      )) : '—'}
+                    </td>
                     <td style={{whiteSpace:'nowrap',fontSize:12}}>
                       {r.requiere_seguimiento
                         ?<span style={{color:'var(--accent)',fontWeight:600}}>📅 {r.proxima_consulta?formatDate(r.proxima_consulta):'Pendiente'}{r.hora_proxima_consulta?` · ${r.hora_proxima_consulta.substring(0,5)}`:''}</span>
@@ -240,8 +229,8 @@ export default function RegistroPacientes() {
                     </td>
                     <td>
                       <div className="table-actions">
-                        <button className="btn btn-ghost" style={{padding:'6px 10px',fontSize:12}} onClick={() => openDetail(r)} title="Ver detalle"><Eye size={14}/></button>
-                        <button className="btn-danger-ghost" style={{padding:'6px 8px'}} onClick={() => setConfirmDelete(r)} title="Eliminar historia clínica"><Trash2 size={14}/></button>
+                        <button className="btn btn-ghost" style={{padding:'6px 10px',fontSize:12}} onClick={() => openDetail(r)} title="Ver detalle completo"><Eye size={14}/></button>
+                        <button className="btn-danger-ghost" style={{padding:'6px 8px'}} onClick={() => setConfirmDelete(r)} title="Eliminar"><Trash2 size={14}/></button>
                       </div>
                     </td>
                   </tr>
@@ -300,7 +289,7 @@ export default function RegistroPacientes() {
                 <p style={{fontSize:14,color:'var(--danger)',fontWeight:600,marginBottom:6}}>⚠️ Esta acción no se puede deshacer</p>
                 <p style={{fontSize:13,color:'var(--text-secondary)'}}>
                   Se eliminará la atención del <strong>{formatDate(confirmDelete.fecha_atencion)}</strong> de <strong>{confirmDelete.pacientes?.nombres} {confirmDelete.pacientes?.apellidos}</strong>.
-                  Si es la única atención, también se eliminará la ficha completa del paciente.
+                  Si es la única atención, también se eliminará la ficha completa.
                 </p>
               </div>
               <div style={{display:'flex',justifyContent:'flex-end',gap:10}}>
@@ -318,17 +307,18 @@ export default function RegistroPacientes() {
   )
 }
 
-/* ── Detail View con tabs ── */
+/* ══ DETAIL VIEW CON TODAS LAS PESTAÑAS ══ */
 function DetailView({ r, ant, ef, examenes, formatDate }) {
   const [tab, setTab] = useState('datos')
   const p = r.pacientes || {}
 
   const Row = ({ label, value }) => (
     <div style={{display:'flex',gap:8,marginBottom:8}}>
-      <span style={{fontSize:12,fontWeight:600,color:'var(--text-muted)',minWidth:160}}>{label}</span>
-      <span style={{fontSize:13,color:'var(--text-primary)'}}>{value||'—'}</span>
+      <span style={{fontSize:12,fontWeight:600,color:'var(--text-muted)',minWidth:170,flexShrink:0}}>{label}</span>
+      <span style={{fontSize:13,color:'var(--text-primary)',lineHeight:1.5}}>{value||'—'}</span>
     </div>
   )
+
   const Sec = ({ title, children }) => (
     <div style={{marginBottom:20}}>
       <div style={{fontFamily:'var(--font-display)',fontWeight:700,color:'var(--primary)',fontSize:13,marginBottom:10,paddingBottom:5,borderBottom:'2px solid var(--accent)',display:'inline-block'}}>{title}</div>
@@ -336,44 +326,39 @@ function DetailView({ r, ant, ef, examenes, formatDate }) {
     </div>
   )
 
-  const hallazgos = ef ? EF_SECTIONS.flatMap(sec =>
-    sec.items.filter(item => ef[`${sec.key}_${item.key}`]).map(item => ({
-      seccion: sec.label, item: item.label, obs: ef[`${sec.key}_${item.key}_obs`] || ''
-    }))
-  ) : []
+  const examLab = (examenes||[]).filter(e => e.tipo === 'Laboratorio')
+  const examImg = (examenes||[]).filter(e => e.tipo === 'Imagenología')
+  const examOtro = (examenes||[]).filter(e => e.tipo === 'Otro')
+  const totalExamenes = (examenes||[]).length
 
-  const examLab = (examenes||[]).filter(e=>e.tipo==='Laboratorio')
-  const examImg = (examenes||[]).filter(e=>e.tipo==='Imagenología')
-  const examOtro = (examenes||[]).filter(e=>e.tipo==='Otro')
-
-  const INTERP = {
-    'Normal':     {bg:'#F0FFF4',color:'#2F855A'},
-    'Anormal':    {bg:'#FFF5F5',color:'#C53030'},
-    'Borderline': {bg:'#FFFFF0',color:'#744210'},
-  }
+  // Regiones del examen físico con hallazgos
+  const hallazgos = ef ? EF_REGIONES.filter(reg => ef[reg.key] && ef[reg.key].trim() !== '') : []
 
   const tabs = [
-    { id:'datos', label:'👤 Datos y Signos' },
-    { id:'antecedentes', label:'📋 Antecedentes' },
-    { id:'examen', label:'🔬 Examen Físico' },
-    { id:'examenes_res', label:`🧪 Exámenes${(examenes||[]).length>0?` (${(examenes||[]).length})`:''}` },
-    { id:'clinica', label:'🩺 Clínica y Tratamiento' },
+    { id:'datos',       label:'👤 Datos y Signos' },
+    { id:'antecedentes',label:'📋 Antecedentes' },
+    { id:'examen_fis',  label:`🔬 Examen Físico${hallazgos.length > 0 ? ` (${hallazgos.length})` : ''}` },
+    { id:'clinica',     label:'🩺 Evolución y Diagnóstico' },
+    { id:'examenes',    label:`🧪 Exámenes${totalExamenes > 0 ? ` (${totalExamenes})` : ''}` },
+    { id:'tratamiento', label:'💊 Tratamiento' },
   ]
 
   return (
     <div>
-      <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:'2px solid var(--border-light)',paddingBottom:0,flexWrap:'wrap'}}>
+      {/* Tabs */}
+      <div style={{display:'flex',gap:2,marginBottom:20,borderBottom:'2px solid var(--border-light)',flexWrap:'wrap'}}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             padding:'8px 14px',border:'none',background:'none',cursor:'pointer',
-            fontFamily:'var(--font-body)',fontSize:13,fontWeight:tab===t.id?700:400,
+            fontFamily:'var(--font-body)',fontSize:12,fontWeight:tab===t.id?700:400,
             color:tab===t.id?'var(--primary)':'var(--text-muted)',
             borderBottom:tab===t.id?'2px solid var(--primary)':'2px solid transparent',
-            marginBottom:-2,transition:'all 0.15s'
+            marginBottom:-2,transition:'all 0.15s',whiteSpace:'nowrap'
           }}>{t.label}</button>
         ))}
       </div>
 
+      {/* ── TAB: DATOS Y SIGNOS ── */}
       {tab==='datos' && (
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}>
           <Sec title="👤 Datos del Paciente">
@@ -381,9 +366,12 @@ function DetailView({ r, ant, ef, examenes, formatDate }) {
             <Row label="Cédula" value={p.cedula}/>
             <Row label="Fecha nacimiento" value={p.fecha_nacimiento?new Date(p.fecha_nacimiento+'T00:00:00').toLocaleDateString('es-EC'):null}/>
             <Row label="Edad" value={p.edad?`${p.edad} años`:null}/>
-            <Row label="Sexo" value={p.sexo}/><Row label="Estado civil" value={p.estado_civil}/>
-            <Row label="Grupo sanguíneo" value={p.grupo_sanguineo}/><Row label="Teléfono" value={p.telefono}/>
-            <Row label="Correo" value={p.correo}/><Row label="Dirección" value={p.direccion}/>
+            <Row label="Sexo" value={p.sexo}/>
+            <Row label="Estado civil" value={p.estado_civil}/>
+            <Row label="Grupo sanguíneo" value={p.grupo_sanguineo}/>
+            <Row label="Teléfono" value={p.telefono}/>
+            <Row label="Correo" value={p.correo}/>
+            <Row label="Dirección" value={p.direccion}/>
             <Row label="Ocupación" value={p.ocupacion}/>
           </Sec>
           <Sec title="🔬 Signos Vitales">
@@ -394,11 +382,11 @@ function DetailView({ r, ant, ef, examenes, formatDate }) {
             <Row label="Peso / Talla" value={r.peso&&r.talla?`${r.peso} kg / ${r.talla} cm`:null}/>
             <Row label="IMC" value={r.imc?`${r.imc} kg/m²`:null}/>
             <Row label="Perím. Abdominal" value={r.perimetro_abdominal?`${r.perimetro_abdominal} cm`:null}/>
-            <Row label="Estado consciencia" value={r.estado_consciencia}/>
           </Sec>
         </div>
       )}
 
+      {/* ── TAB: ANTECEDENTES ── */}
       {tab==='antecedentes' && (
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}>
           <div>
@@ -412,126 +400,100 @@ function DetailView({ r, ant, ef, examenes, formatDate }) {
             </Sec>
           </div>
           <Sec title="👶 Antecedentes Ginecobstétricos">
-            {ant?.gestas!=null?(<>
+            {ant?.gestas!=null ? (<>
               <Row label="Gestas" value={ant?.gestas?.toString()}/>
               <Row label="Partos vaginales" value={ant?.partos_vaginales?.toString()}/>
               <Row label="Cesáreas" value={ant?.cesareas?.toString()}/>
               <Row label="Abortos" value={ant?.abortos?.toString()}/>
               <Row label="Método planificación" value={ant?.metodo_planificacion}/>
-            </>):<p style={{fontSize:13,color:'var(--text-muted)'}}>No aplica o no registrado</p>}
+            </>) : <p style={{fontSize:13,color:'var(--text-muted)'}}>No aplica o no registrado</p>}
           </Sec>
         </div>
       )}
 
-      {tab==='examen' && (
+      {/* ── TAB: EXAMEN FÍSICO ── */}
+      {tab==='examen_fis' && (
         <div>
-          {hallazgos.length===0?(
+          {hallazgos.length === 0 ? (
             <div style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
-              <div style={{fontSize:32,marginBottom:10}}>✅</div>
-              <div style={{fontFamily:'var(--font-display)',fontSize:15,fontWeight:600}}>Sin hallazgos — Examen físico normal</div>
+              <div style={{fontSize:36,marginBottom:12}}>✅</div>
+              <div style={{fontFamily:'var(--font-display)',fontSize:15,fontWeight:600}}>Examen físico sin hallazgos</div>
+              <div style={{fontSize:13,marginTop:4}}>Todos los sistemas dentro de la normalidad</div>
             </div>
-          ):(
-            <div>
-              <div style={{padding:'8px 14px',background:'var(--accent-soft)',borderRadius:8,marginBottom:16,fontSize:13,color:'var(--accent)',fontWeight:600,border:'1px solid rgba(0,201,167,0.2)'}}>
-                ⚠️ {hallazgos.length} hallazgo(s) registrado(s)
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>
-                {hallazgos.map((h,i)=>(
-                  <div key={i} style={{border:'1.5px solid var(--border-light)',borderRadius:10,overflow:'hidden'}}>
-                    <div style={{background:'var(--primary)',color:'white',padding:'5px 10px',fontSize:11,fontWeight:700}}>{h.seccion}</div>
-                    <div style={{padding:'8px 12px'}}>
-                      <div style={{fontSize:13,fontWeight:600,color:'var(--text-primary)',marginBottom:4}}>✗ {h.item}</div>
-                      {h.obs&&<div style={{fontSize:12,color:'var(--text-secondary)',fontStyle:'italic'}}>"{h.obs}"</div>}
-                    </div>
+          ) : (
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:12}}>
+              {hallazgos.map(reg => (
+                <div key={reg.key} style={{border:'1.5px solid var(--border-light)',borderRadius:10,overflow:'hidden'}}>
+                  <div style={{background:'var(--primary)',color:'white',padding:'7px 12px',fontSize:12,fontWeight:700,display:'flex',alignItems:'center',gap:6}}>
+                    <span>{reg.emoji}</span> {reg.label}
+                    <span style={{marginLeft:'auto',fontSize:10,background:'#FEB2B2',color:'#C53030',padding:'1px 8px',borderRadius:10,fontWeight:800}}>CON HALLAZGO</span>
                   </div>
-                ))}
-              </div>
-              {ef?.observaciones_generales&&(
-                <div style={{marginTop:16,padding:12,background:'var(--surface-2)',borderRadius:10,border:'1px solid var(--border-light)'}}>
-                  <div style={{fontSize:12,fontWeight:700,color:'var(--text-muted)',marginBottom:4,textTransform:'uppercase'}}>Observaciones generales</div>
-                  <p style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{ef.observaciones_generales}</p>
+                  <div style={{padding:'10px 14px',fontSize:13,color:'var(--text-secondary)',lineHeight:1.6,background:'white'}}>
+                    {ef[reg.key]}
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
           )}
-        </div>
-      )}
-
-      {tab==='examenes_res' && (
-        <div>
-          {(examenes||[]).length===0?(
-            <div style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
-              <div style={{fontSize:36,marginBottom:12}}>🧪</div>
-              <div style={{fontFamily:'var(--font-display)',fontSize:15,fontWeight:600}}>Sin exámenes registrados en esta atención</div>
-            </div>
-          ):(
-            <div className="section-stack">
-              {[{tipo:'Laboratorio',emoji:'🧪',data:examLab},{tipo:'Imagenología',emoji:'🩻',data:examImg},{tipo:'Otro',emoji:'📋',data:examOtro}]
-                .filter(g=>g.data.length>0)
-                .map(g=>(
-                  <div key={g.tipo}>
-                    <div style={{fontFamily:'var(--font-display)',fontWeight:700,fontSize:14,color:'var(--primary)',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
-                      {g.emoji} {g.tipo}
-                    </div>
-                    <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                      {g.data.map((ex,i)=>{
-                        const interp = INTERP[ex.interpretacion]
-                        return(
-                          <div key={i} style={{border:'1.5px solid var(--border-light)',borderRadius:10,overflow:'hidden'}}>
-                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 14px',background:'var(--surface-2)',borderBottom:'1px solid var(--border-light)'}}>
-                              <div style={{fontWeight:700,fontSize:14}}>{ex.nombre_examen}</div>
-                              <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                                {ex.fecha_examen&&<span style={{fontSize:12,color:'var(--text-muted)'}}>📅 {formatDate(ex.fecha_examen)}</span>}
-                                {interp&&<span style={{background:interp.bg,color:interp.color,fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:12}}>
-                                  {ex.interpretacion==='Normal'?'✅':ex.interpretacion==='Anormal'?'❌':'⚠️'} {ex.interpretacion}
-                                </span>}
-                              </div>
-                            </div>
-                            <div style={{padding:'10px 14px',display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12}}>
-                              {ex.valor&&<div><div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:2}}>Valor</div><div style={{fontSize:15,fontWeight:800,fontFamily:'var(--font-display)',color:'var(--primary)'}}>{ex.valor} <span style={{fontSize:12,fontWeight:400,color:'var(--text-muted)'}}>{ex.unidad}</span></div></div>}
-                              {ex.rango_normal&&<div><div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:2}}>Rango normal</div><div style={{fontSize:13}}>{ex.rango_normal}</div></div>}
-                              {ex.resultado&&<div style={{gridColumn:'span 2'}}><div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:2}}>Resultado / Hallazgo</div><div style={{fontSize:13,lineHeight:1.5}}>{ex.resultado}</div></div>}
-                              {ex.observacion&&<div style={{gridColumn:'span 2'}}><div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:2}}>Observación</div><div style={{fontSize:13,color:'var(--text-secondary)',fontStyle:'italic'}}>{ex.observacion}</div></div>}
-                              {ex.laboratorio&&<div><div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',marginBottom:2}}>Laboratorio</div><div style={{fontSize:12,color:'var(--text-secondary)'}}>{ex.laboratorio}</div></div>}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
+          {/* Regiones normales */}
+          {ef && EF_REGIONES.filter(reg => !ef[reg.key] || ef[reg.key].trim() === '').length > 0 && (
+            <div style={{marginTop:16,padding:'10px 14px',background:'var(--surface-2)',borderRadius:8,border:'1px solid var(--border-light)'}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:8}}>✅ Regiones normales</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {EF_REGIONES.filter(reg => !ef[reg.key] || ef[reg.key].trim() === '').map(reg => (
+                  <span key={reg.key} style={{fontSize:11,background:'#F0FFF4',color:'#2F855A',padding:'3px 10px',borderRadius:12,fontWeight:600,border:'1px solid #9AE6B4'}}>
+                    {reg.emoji} {reg.label}
+                  </span>
                 ))}
+              </div>
             </div>
           )}
         </div>
       )}
 
+      {/* ── TAB: EVOLUCIÓN Y DIAGNÓSTICO ── */}
       {tab==='clinica' && (
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}>
           <div>
-            <Sec title="📋 Motivo de Consulta"><p style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{r.motivo_consulta||'—'}</p></Sec>
-            <Sec title="🩺 Evolución"><p style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{r.evolucion||'—'}</p></Sec>
-            {r.observaciones&&<Sec title="📝 Observaciones"><p style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{r.observaciones}</p></Sec>}
-            {r.recomendaciones&&<Sec title="💡 Recomendaciones"><p style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6}}>{r.recomendaciones}</p></Sec>}
-            <Sec title="🏷 Diagnósticos CIE-10">
-              {(r.diagnosticos||[]).length?r.diagnosticos.map(d=>(
-                <div key={d.id} style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:8}}>
-                  <span style={{fontFamily:'var(--font-display)',fontWeight:700,color:'var(--primary)',fontSize:14,minWidth:56}}>{d.codigo_cie10}</span>
-                  <div><div style={{fontSize:13}}>{d.nombre_cie10}</div><span className={`table-badge ${d.tipo==='definitivo'?'badge-def':'badge-pre'}`} style={{marginTop:3}}>{d.tipo}</span></div>
-                </div>
-              )):<p style={{fontSize:13,color:'var(--text-muted)'}}>Sin diagnósticos registrados</p>}
+            <Sec title="📋 Motivo de Consulta">
+              <div style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6,padding:'10px 12px',background:'var(--surface-2)',borderRadius:8,border:'1px solid var(--border-light)'}}>
+                {r.motivo_consulta||'—'}
+              </div>
             </Sec>
+            <Sec title="🩺 Evolución">
+              <div style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6,padding:'10px 12px',background:'var(--surface-2)',borderRadius:8,border:'1px solid var(--border-light)'}}>
+                {r.evolucion||'—'}
+              </div>
+            </Sec>
+            {r.observaciones && (
+              <Sec title="📝 Observaciones">
+                <div style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6,padding:'10px 12px',background:'var(--surface-2)',borderRadius:8,border:'1px solid var(--border-light)'}}>
+                  {r.observaciones}
+                </div>
+              </Sec>
+            )}
+            {r.recomendaciones && (
+              <Sec title="💡 Recomendaciones">
+                <div style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6,padding:'10px 12px',background:'#FFFFF0',borderRadius:8,border:'1px solid #FAF089'}}>
+                  {r.recomendaciones}
+                </div>
+              </Sec>
+            )}
           </div>
           <div>
-            <Sec title="💊 Tratamiento">
-              {(r.tratamientos||[]).length?(
-                <table style={{width:'100%',fontSize:12}}>
-                  <thead><tr>{['Medicamento','Cantidad','Posología'].map(h=>(<th key={h} style={{textAlign:'left',padding:'4px 8px',color:'var(--text-muted)',fontWeight:700,fontSize:11,textTransform:'uppercase',borderBottom:'1px solid var(--border-light)'}}>{h}</th>))}</tr></thead>
-                  <tbody>{r.tratamientos.map(t=>(<tr key={t.id}><td style={{padding:'6px 8px',fontWeight:600}}>{t.medicamento}</td><td style={{padding:'6px 8px',color:'var(--text-secondary)'}}>{t.cantidad}</td><td style={{padding:'6px 8px',color:'var(--text-secondary)'}}>{t.posologia}</td></tr>))}</tbody>
-                </table>
-              ):<p style={{fontSize:13,color:'var(--text-muted)'}}>Sin tratamiento registrado</p>}
+            <Sec title="🏷 Diagnósticos CIE-10">
+              {(r.diagnosticos||[]).length ? r.diagnosticos.map(d => (
+                <div key={d.id} style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:10,padding:'8px 12px',background:'var(--surface-2)',borderRadius:8,border:'1px solid var(--border-light)'}}>
+                  <span style={{fontFamily:'var(--font-display)',fontWeight:700,color:'var(--primary)',fontSize:14,minWidth:56,flexShrink:0}}>{d.codigo_cie10}</span>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:500}}>{d.nombre_cie10}</div>
+                    <span className={`table-badge ${d.tipo==='definitivo'?'badge-def':'badge-pre'}`} style={{marginTop:4,display:'inline-block'}}>{d.tipo}</span>
+                  </div>
+                </div>
+              )) : <p style={{fontSize:13,color:'var(--text-muted)'}}>Sin diagnósticos registrados</p>}
             </Sec>
-            {r.requiere_seguimiento&&(
-              <div style={{padding:14,background:'var(--accent-soft)',borderRadius:12,border:'1px solid rgba(0,201,167,0.2)',marginTop:12}}>
+            {r.requiere_seguimiento && (
+              <div style={{padding:14,background:'var(--accent-soft)',borderRadius:12,border:'1px solid rgba(0,201,167,0.2)'}}>
                 <div style={{fontWeight:700,color:'var(--accent)',fontSize:14,marginBottom:6}}>📅 Próxima consulta programada</div>
                 <div style={{fontSize:15,fontWeight:700,color:'var(--primary)'}}>
                   {formatDate(r.proxima_consulta)}
@@ -540,6 +502,87 @@ function DetailView({ r, ant, ef, examenes, formatDate }) {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── TAB: EXÁMENES ── */}
+      {tab==='examenes' && (
+        <div>
+          {totalExamenes === 0 ? (
+            <div style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
+              <div style={{fontSize:36,marginBottom:12}}>🧪</div>
+              <div style={{fontFamily:'var(--font-display)',fontSize:15,fontWeight:600}}>Sin exámenes registrados en esta atención</div>
+            </div>
+          ) : (
+            <div style={{display:'flex',flexDirection:'column',gap:24}}>
+              {[{tipo:'Laboratorio',emoji:'🧪',data:examLab},{tipo:'Imagenología',emoji:'🩻',data:examImg},{tipo:'Otro',emoji:'📋',data:examOtro}]
+                .filter(g => g.data.length > 0)
+                .map(g => (
+                  <div key={g.tipo}>
+                    <div style={{fontFamily:'var(--font-display)',fontWeight:700,fontSize:14,color:'var(--primary)',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+                      {g.emoji} {g.tipo}
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                      {g.data.map((ex,i) => (
+                        <div key={i} style={{border:'1.5px solid var(--border-light)',borderRadius:12,overflow:'hidden',boxShadow:'var(--shadow-sm)'}}>
+                          {/* Header */}
+                          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 14px',background:'var(--primary)',borderBottom:'1px solid var(--border-light)'}}>
+                            <span style={{fontWeight:700,fontSize:14,color:'white'}}>{ex.nombre_examen||'Sin nombre'}</span>
+                            {ex.fecha_examen&&<span style={{fontSize:12,color:'rgba(255,255,255,0.8)'}}>📅 {formatDate(ex.fecha_examen)}</span>}
+                          </div>
+                          {/* Resultados y Observaciones */}
+                          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',background:'white'}}>
+                            <div style={{padding:'12px 14px',borderRight:'1px solid var(--border-light)'}}>
+                              <div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:6}}>📊 Resultados</div>
+                              <div style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6,whiteSpace:'pre-wrap'}}>
+                                {ex.resultado || <span style={{color:'var(--border)',fontStyle:'italic'}}>Sin resultados</span>}
+                              </div>
+                            </div>
+                            <div style={{padding:'12px 14px'}}>
+                              <div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:6}}>💬 Observaciones</div>
+                              <div style={{fontSize:13,color:'var(--text-secondary)',lineHeight:1.6,whiteSpace:'pre-wrap'}}>
+                                {ex.observacion || <span style={{color:'var(--border)',fontStyle:'italic'}}>Sin observaciones</span>}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: TRATAMIENTO ── */}
+      {tab==='tratamiento' && (
+        <div>
+          {(r.tratamientos||[]).length === 0 ? (
+            <div style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>
+              <div style={{fontSize:36,marginBottom:12}}>💊</div>
+              <div style={{fontSize:14,fontWeight:600}}>Sin tratamiento registrado</div>
+            </div>
+          ) : (
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {r.tratamientos.map((t,i) => (
+                <div key={t.id} style={{display:'grid',gridTemplateColumns:'2fr 1fr 3fr',gap:12,padding:'12px 16px',background: i%2===0?'white':'var(--surface-2)',borderRadius:8,border:'1px solid var(--border-light)',alignItems:'start'}}>
+                  <div>
+                    <div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:4}}>Medicamento</div>
+                    <div style={{fontSize:14,fontWeight:700,color:'var(--primary)'}}>{t.medicamento}</div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:4}}>Cantidad</div>
+                    <div style={{fontSize:13}}>{t.cantidad||'—'}</div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:4}}>Posología</div>
+                    <div style={{fontSize:13,color:'var(--text-secondary)'}}>{t.posologia||'—'}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
